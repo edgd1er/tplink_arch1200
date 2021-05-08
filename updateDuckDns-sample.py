@@ -5,8 +5,10 @@
 import logging
 import logging.config
 import os
-import re
+import smtplib
 import socket
+import ssl
+from datetime import datetime
 
 # Homemade Modules
 import archer1200
@@ -14,13 +16,42 @@ import duckdns
 
 # Variables
 
-duck_token = '__duckdns_token__'
-domains = "yourdomain1,yourdomain2,yourdomain3,yourdomain4,yourdomain5"
-encrypted = '__your_router_encrypted_password_extracted_as_shown_in_readme'
-duckdns_fqdn = 'myhost.duckdns.org'
+# duck_token = '__duckdns_token__'
+# domains = "yourdomain1,yourdomain2,yourdomain3,yourdomain4,yourdomain5"
+# encrypted = '__your_router_encrypted_password_extracted_as_shown_in_readme'
+# duckdns_fqdn= 'myhost.duckdns.org'
+
+ldir = os.path.dirname(os.path.realpath(__file__))
 
 
 # functions
+# coding: utf-8
+
+def send_mail(message=''):
+  if message == '':
+    return
+  from_addr = "test591@free.fr"
+  to_addr = "test591@free.fr"
+  subject = f'[{socket.gethostname()}][Duck: update ip]'
+  msg = """\
+From: %s\r\n\
+To: %s\r\n\
+Subject: %s\r\n\
+\r\n\
+%s
+""" % (from_addr, to_addr, subject, message)
+  mailserver = smtplib.SMTP('smtp.myprovider.com', 587)
+  mailserver.ehlo()
+  mailserver.starttls(context=ssl.create_default_context())
+  mailserver.ehlo()
+  mailserver.login("user", "password")
+  try:
+    mailserver.sendmail(from_addr, to_addr, msg)
+  except smtplib.SMTPException as e:
+    print(e)
+  mailserver.quit()
+
+
 def check_ip_with_fqdn(my_router):
   """ return true if dns resolution is not correct
   :rtype: object
@@ -48,23 +79,13 @@ def check_ip_with_fqdn(my_router):
 
 def main():
   import argparse
-  force = 0
   clear = False
   txt = None
-  ip = None
-  mail = '/usr/bin/msmtp'
-  ldir = os.getcwd()
-  rdir = '/media/usb1/docker/duckdns'
   log_dir = f'{ldir}/logs'
   sql_dir = f'{ldir}/sql'
   global duck_token
   global domains
   global encrypted
-
-  m = re.search(r"holdom", socket.gethostname())
-  if m is not None:
-    log_dir = 'f{rdir}/logs'
-    sql_dir = 'f{rdir}/sql'
 
   os.makedirs(log_dir, exist_ok=True)
   os.makedirs(sql_dir, exist_ok=True)
@@ -76,6 +97,7 @@ def main():
   parser.add_argument('-n', '--dryrun', action='store_true', help='do not update duckdns')
   parser.add_argument('-f', '--force', action='store_true', help='force duckdns ip update')
   parser.add_argument('-t', '--txt', type=str, default=None, help='the txt you require.')
+  parser.add_argument('-s', '--silent', action='store_true', help='silent mode for cron execution')
   parser.add_argument('-d', '--domains', type=str, default=None,
                       help='The DuckDNS domains to update as comma separated list. '
                            'Defaults to DUCKDNS_DOMAINS environment variable.')
@@ -100,27 +122,36 @@ def main():
   force = args.force
   if args.verbose:
     log_level = logging.DEBUG
+    logging.getLogger('archer1200').setLevel(log_level)
+    logging.getLogger('duckdns').setLevel(log_level)
   else:
     log_level = logging.INFO
 
-  logger.setLevel(log_level);
-  # http://myexternalip.com/raw | grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}"
+  if args.silent:
+    log_level = logging.ERROR
+    logging.getLogger('archer1200').setLevel(log_level)
+    logging.getLogger('duckdns').setLevel(log_level)
+
+  logger.setLevel(log_level)
   # logging.basicConfig(format='%(levelname)s:%(name)s:%(message)s', level=log_level)
   logger.debug(f'Token value: {duck_token}, domains: {domains}, {args}')
 
   my_router = archer1200.Archer1200(encrypted=encrypted)
 
   if check_ip_with_fqdn(my_router) or force:
-    # if force:
     my_duck_dns = duckdns.duckdns(token=duck_token, domains=domains)
     ip = my_duck_dns.get_external_ip2()
     out = my_duck_dns.duckdns_update(ip=ip, verbose=args.verbose, clear=clear, txt=txt, ip6=None, dry_run=args.dryrun)
-    #  domains=args.domains, token=args.token, verbose=args.verbose)
-    # 20210401_1750_duck.log
-    logger.info(out.strip().replace('\n', ' '))
+    fname = datetime.now().strftime("%y%m%d_%H%M_duck.log")
+    logger.info(out.strip().replace('\n', ' ') + f' written to {log_dir}/{fname}, forced: {force}')
+    send_mail(out)
+    with open(os.path.join(log_dir, fname), 'x+') as duckstats:
+      duckstats.write(out)
 
 
 if __name__ == "__main__":
-  logging.config.fileConfig(fname='updateDuckDns.conf', disable_existing_loggers=False)
+  logging.config.fileConfig(fname=ldir + os.path.sep + 'updateDuckDns.conf', disable_existing_loggers=False)
   logger = logging.getLogger(__name__)
   main()
+
+# res2 = js2py.eval_js()

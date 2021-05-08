@@ -6,6 +6,9 @@ import requests
 # Largely inspired by
 # https://raw.githubusercontent.com/hbldh/duckdns-upd8/master/duckdns.py
 
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+
 class duckdns:
   """
   duckdns client to update domains according to specs
@@ -25,7 +28,7 @@ class duckdns:
     """
     self.token = token if token else os.environ.get("DUCKDNS_TOKEN")
     self.domains = domains if domains else os.environ.get("DUCKDNS_DOMAINS")
-    logging.debug(f'Instance: token: {token}, domains: {domains}')
+    logger.debug(f'Instance: token: {token}, domains: {domains}')
 
   def get_external_ip(self):
     """Get your external IP address as string.
@@ -72,10 +75,10 @@ class duckdns:
       params['ip6'] = ip6
 
     if dry_run:
-      logging.debug(f'DRYRUN: updating with {params}')
+      logger.debug(f'DRYRUN: updating with {params}')
       r = 'DRYRUN, nothing performed'
     else:
       r = requests.get(self.duckdns_url, params).text
-      logging.debug(f'updating with {params}')
+      logger.debug(f'updating with {params}')
 
     return r.strip()
