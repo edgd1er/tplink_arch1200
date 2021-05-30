@@ -1,0 +1,11 @@
+[my_duckdns]
+duck_token = <duck_token>
+domains = domain1,domain3,domain3,domain4,domain5
+encrypted = <hashes>
+duckdns_fqdn = <yourduck.duckdns.org>
+eml_from=<sender>
+eml_to=<recipient>
+smtp_server= smtp.server.yours
+smtp_port = <int>
+smtp_user = <smtp_loginname>
+smtp_pass = <smtp_password>

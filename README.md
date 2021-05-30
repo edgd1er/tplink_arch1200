@@ -11,32 +11,26 @@ Two classes are implemented:
 /!\ password encryption is not implemented. archer2000 initialisation need it.
 
 ###Get encrypted password
-* open router' login url: http://tplinkwifi.net/webpages/login.html
+* open router's login url: http://tplinkwifi.net/webpages/login.html
+  
+Login using the local admin password:
+
 * open developper console (F12 for Firefox and chrome), execute here under commands. 
 
-  hide cloud login: `$('#cloud-form-login').hide()`
-  
-  show local login: `$('#form-login').show()`
-  
-  set password: `$('form#form-login').find('input[type="password"].text-text.password-text.password-hidden').val('__your_password__')`
-  
-  show 'real' input tag: `$('input#login-password').removeClass("hidden")`
-
-  values update: `$('form#form-login').find('.password-container').focusout()`
-  
-  password encryption: `$("input#login-password").password("doEncrypt")`
-
-  reveal encrypted value: `$("input#login-password").attr('type','text')`
-
-  copy
-
-cut and paste in de console:
+ cut and paste in de console:
 ```
-$('#cloud-form-login').hide()
-$('#form-login').show()
-$('form#form-login').find('input[type="password"].text-text.password-text.password-hidden').val('__your_password__')
-$('input#login-password').removeClass("hidden")
-$('form#form-login').find('.password-container').focusout()
+$('form#cloud-form-login').hide()
+$('form#form-login').show()
+$('form#form-login').find('input[type="password"].text-text.password-text.password-hidden').val('your_password').focusout()
 $("input#login-password").password("doEncrypt");
-$("input#login-password").attr('type','text')
+$('input#login-password').val()
+```
+Login using the cloud login password
+```
+$('input#cloud-login-username').val('yourUser')
+$('form#cloud-form-login').find('input[type="password"].text-text.password-text.password-hidden.l').val('your_password')
+$('form#cloud-form-login').find('input[type="password"].text-text.password-text.password-hidden.l').focusout()
+$('input#cloud-first-login-password').removeClass("hidden")
+$('input#login-password').val()
+$('form#cloud-form-login').submit()
 ```
