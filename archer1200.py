@@ -4,9 +4,9 @@ import logging
 import re
 import shutil
 import time
-import urllib.request
-
 import requests
+import urllib3
+
 from requests.exceptions import HTTPError
 
 logger = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ class Archer1200:
             logger.error("Not logged in, exiting")
             return
         try:
-            with urllib.request.urlopen(url) as response, open(file_name, 'wb') as out_file:
+            with urllib3.request.urlopen(url) as response, open(file_name, 'wb') as out_file:
                 shutil.copyfileobj(response, out_file)
         except HTTPError as http_err:
             logger.error(f'HTTP error occurred: {http_err}')  # Python 3.6
