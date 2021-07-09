@@ -24,27 +24,24 @@ logger = {}
 # functions
 # coding: utf-8
 
-def send_mail(message=''):
+def send_mail(message='', run_by_cron=0):
     if message == '':
         return
-    subject = f'[{socket.gethostname()}][Duck: update ip]'
-    msg = """\
-From: %s\r\n\
-To: %s\r\n\
-Subject: %s\r\n\
-\r\n\
-%s
-""" % (eml_from, eml_to, subject, message)
-    mailserver = smtplib.SMTP(smtp_server, smtp_port)
-    mailserver.ehlo()
-    mailserver.starttls(context=ssl.create_default_context())
-    mailserver.ehlo()
-    mailserver.login(smtp_user, smtp_pass)
-    try:
-        mailserver.sendmail(eml_from, eml_to, msg)
-    except smtplib.SMTPException as e:
-        print(e)
-    mailserver.quit()
+    if not run_by_cron:
+        print(message)
+    else:
+        subject = f'[{socket.gethostname()}][Duck: update ip]'
+        msg = f'From: {eml_from}\r\n\To: {eml_to}\r\nSubject: {subject}\r\n\r\n{message}'
+        mailserver = smtplib.SMTP(smtp_server, smtp_port)
+        mailserver.ehlo()
+        mailserver.starttls(context=ssl.create_default_context())
+        mailserver.ehlo()
+        mailserver.login(smtp_user, smtp_pass)
+        try:
+            mailserver.sendmail(eml_from, eml_to, msg)
+        except smtplib.SMTPException as e:
+            print(e)
+        mailserver.quit()
 
 
 def check_ip_with_fqdn(my_router, duckdns_fqdn):
@@ -79,7 +76,9 @@ def main():
     sql_dir = f'{ldir}/sql'
     global duck_token
     global domains
-    global encrypted
+    global archer_encrypted
+    global archer_login
+    global RUN_BY_CRON
 
     if socket.gethostname().find('holdom') >= 0:
         log_dir = f'{rdir}/logs'
@@ -135,41 +134,43 @@ def main():
     # logging.basicConfig(format='%(levelname)s:%(name)s:%(message)s', level=log_level)
     logger.debug(f'Token value: {duck_token}, domains: {domains}, fqdn: {duckdns_fqdn}, {args}')
 
-    my_router = archer1200.Archer1200(encrypted=encrypted)
+    my_router = archer1200.Archer1200(encrypted=archer_encrypted)
 
     if check_ip_with_fqdn(my_router, duckdns_fqdn) or force:
         my_duck_dns = duckdns.duckdns(token=duck_token, domains=domains)
-        ip = my_duck_dns.get_external_ip2()
+        # ip = my_duck_dns.get_external_ip2()
+        ip = my_router.get_wan_ip()
         out = my_duck_dns.duckdns_update(ip=ip, verbose=args.verbose, clear=clear, txt=txt, ip6=None,
                                          dry_run=args.dryrun)
         fname = datetime.now().strftime("%Y%m%d_%H%M_duck.log")
         logger.info(out.strip().replace('\n', ' ') + f' written to {log_dir}/{fname}, forced: {force}')
-        send_mail(out)
+        send_mail(out, RUN_BY_CRON)
         with open(os.path.join(log_dir, fname), 'x+') as duckstats:
             duckstats.write(out)
 
+    # send_mail(f'RUN_BY_CRON: {RUN_BY_CRON}, this is a test message to test mail sending', RUN_BY_CRON)
+
 
 if __name__ == "__main__":
+    print(f'script dir: {ldir}')
+    RUN_BY_CRON = os.environ.get('RUN_BY_CRON')
     logging.config.fileConfig(fname=ldir + os.path.sep + 'updateDuckDns_logging.ini', disable_existing_loggers=False)
     logger = logging.getLogger(__name__)
     # configParser
     config = configparser.ConfigParser()
-    config['my_duckdns'] = {'duck_token': 'none',
-                            'domains': 'domain1,domain3,domain3,domain4,domain5',
-                            'encrypted': '<hashes>',
-                            'duckdns_fqdn': 'youduckdns.duckdns.org'}
-    config.sections()
-    config.read('updateDuckDns.ini')
-    duck_token = config['my_duckdns']['duck_token']
-    domains = config['my_duckdns']['domains']
-    encrypted = config['my_duckdns']['encrypted']
-    duckdns_fqdn = config['my_duckdns']['duckdns_fqdn']
-    eml_from = config['my_duckdns']['eml_from']
-    eml_to = config['my_duckdns']['eml_to']
-    smtp_server = config['my_duckdns']['smtp_server']
-    smtp_port = config['my_duckdns']['smtp_port']
-    smtp_user = config['my_duckdns']['smtp_user']
-    smtp_pass = config['my_duckdns']['smtp_pass']
+    files = config.read(filenames=ldir + os.path.sep + 'updateDuckDns.ini')
+    # logger.debug(f'file read read: {files}, sections: {config.sections()}, config: {config}')
+    duck_token = config['my_duckdns'].get('duck_token', 'none')
+    domains = config['my_duckdns'].get('domains', 'domain1,domain3,domain3,domain4,domain5')
+    archer_encrypted = config['my_duckdns'].get('archer_encrypted', '<hashes>')
+    login = config['my_duckdns'].get('archer_login', '<archer_login>')
+    duckdns_fqdn = config['my_duckdns'].get('duckdns_fqdn', 'youduckdns.duckdns.org', )
+    eml_from = config['my_duckdns'].get('eml_from', 'none')
+    eml_to = config['my_duckdns'].get('eml_to', 'none')
+    smtp_server = config['my_duckdns'].get('smtp_server', '')
+    smtp_port = config['my_duckdns'].get('smtp_port')
+    smtp_user = config['my_duckdns'].get('smtp_user')
+    smtp_pass = config['my_duckdns'].get('smtp_pass')
     main()
 
 # res2 = js2py.eval_js()
