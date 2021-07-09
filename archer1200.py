@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import functools
 import json
 import logging
@@ -206,7 +209,7 @@ class Archer1200:
             to_return = status_all[field]
             logger.debug(f'get_field_from_status_all: found field: {field}: {to_return}')
         except Exception as e:
-            logger.error(f'Exception {e}')
+            logger.info(f'get_field_from_status_all: field not found: {e}')
 
         return to_return
 
