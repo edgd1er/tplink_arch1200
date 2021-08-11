@@ -128,5 +128,14 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# ide settings
+.idea/*
+# settings
 updateDuckDns.ini
+# local dir and files
 /.duckdns/
+sql/*
+tp/
+duck.sh
+stats.sh
+remove_older.sh
