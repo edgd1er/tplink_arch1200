@@ -31,7 +31,7 @@ def send_mail(message='', run_by_cron=0):
         print(message)
     else:
         subject = f'[{socket.gethostname()}][Duck: update ip]'
-        msg = f'From: {eml_from}\r\n\To: {eml_to}\r\nSubject: {subject}\r\n\r\n{message}'
+        msg = f'From: {eml_from}\r\nTo: {eml_to}\r\nSubject: {subject}\r\n\r\n{message}'
         mailserver = smtplib.SMTP(smtp_server, smtp_port)
         mailserver.ehlo()
         mailserver.starttls(context=ssl.create_default_context())
