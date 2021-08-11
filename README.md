@@ -10,14 +10,14 @@ Two classes are implemented:
 
 /!\ password encryption is not implemented. archer2000 initialisation need it.
 
-###Get encrypted password
+### Get encrypted password
 * open router's login url: http://tplinkwifi.net/webpages/login.html
   
 Login using the local admin password:
 
 * open developper console (F12 for Firefox and chrome), execute here under commands. 
 
- cut and paste in de console:
+ cut and paste in the console:
 ```
 $('form#cloud-form-login').hide()
 $('form#form-login').show()
@@ -34,3 +34,16 @@ $('input#cloud-first-login-password').removeClass("hidden")
 $('input#login-password').val()
 $('form#cloud-form-login').submit()
 ```
+
+### virtual environment
+suggested for devs:
+* Install virtual environment: `python3 -m venv env-name`
+* Running virtual environment: `source env-name/bin/activate`
+* Deactivate the virtual environment: `deactivate`
+* Install packages: `pip install -r requirements.txt`
+
+### Run tests
+* update updateDuckDns.ini with modem's credentials
+* run tests: 
+  * ./archer1200_test.py
+  * ./updateDuckDns_test.py
