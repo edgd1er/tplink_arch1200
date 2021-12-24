@@ -25,10 +25,16 @@ logger = {}
 # coding: utf-8
 
 def send_mail(message='', run_by_cron=0):
+    """
+    send mail if run by cron
+    :param message:
+    :param run_by_cron:
+    :return:
+    """
     if message == '':
         return
     if not run_by_cron:
-        print(message)
+        print("send_mail: " + message)
     else:
         subject = f'[{socket.gethostname()}][Duck: update ip]'
         msg = f'From: {eml_from}\r\nTo: {eml_to}\r\nSubject: {subject}\r\n\r\n{message}'
@@ -74,10 +80,10 @@ def main():
     rdir = '/media/usb1/docker/duckdns'
     log_dir = f'{ldir}/logs'
     sql_dir = f'{ldir}/sql'
-    global duck_token
-    global domains
-    global archer_encrypted
-    global archer_login
+    global DUCK_TOKEN
+    global DOMAINS
+    global ARCHER_ENCRYPTED
+    global ARCHER_LOGIN
     global RUN_BY_CRON
 
     if socket.gethostname().find('holdom') >= 0:
@@ -108,14 +114,14 @@ def main():
     args = parser.parse_args()
 
     if args.auth is None:
-        if duck_token == '':
+        if DUCK_TOKEN == '':
             logger.error('Duckdns token not defined')
             quit()
     else:
-        duck_token = args.auth
+        DUCK_TOKEN = args.auth
 
     if args.domains is not None:
-        domains = args.domains
+        DOMAINS = args.domains
 
     force = args.force
     if args.verbose:
@@ -132,14 +138,23 @@ def main():
 
     logger.setLevel(log_level)
     # logging.basicConfig(format='%(levelname)s:%(name)s:%(message)s', level=log_level)
-    logger.debug(f'Token value: {duck_token}, domains: {domains}, fqdn: {duckdns_fqdn}, {args}')
+    logger.debug(f'Token value: {DUCK_TOKEN}, domains: {DOMAINS}, fqdn: {duckdns_fqdn}, {args}')
 
-    my_router = archer1200.Archer1200(encrypted=archer_encrypted)
+    my_router = archer1200.Archer1200(encrypted=ARCHER_ENCRYPTED)
+    if my_router.get_timestamp() == '':
+        logger.error(f'Error archer1200.Archer1200: cannot connect to router.')
+        send_mail(f'Error archer1200.Archer1200: cannot connect to router.', RUN_BY_CRON)
+        exit(1)
 
     if check_ip_with_fqdn(my_router, duckdns_fqdn) or force:
-        my_duck_dns = duckdns.duckdns(token=duck_token, domains=domains)
+        my_duck_dns = duckdns.duckdns(token=DUCK_TOKEN, domains=DOMAINS)
         # ip = my_duck_dns.get_external_ip2()
         ip = my_router.get_wan_ip()
+        if ip == '':
+            logger.error(f'Error archer1200.Archer1200: cannot get wan from router.')
+            send_mail(f'Error archer1200.Archer1200: cannot get wan from router.', RUN_BY_CRON)
+            exit(1)
+
         out = my_duck_dns.duckdns_update(ip=ip, verbose=args.verbose, clear=clear, txt=txt, ip6=None,
                                          dry_run=args.dryrun)
         fname = datetime.now().strftime("%Y%m%d_%H%M_duck.log")
@@ -160,9 +175,9 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
     files = config.read(filenames=ldir + os.path.sep + 'updateDuckDns.ini')
     # logger.debug(f'file read read: {files}, sections: {config.sections()}, config: {config}')
-    duck_token = config['my_duckdns'].get('duck_token', 'none')
-    domains = config['my_duckdns'].get('domains', 'domain1,domain3,domain3,domain4,domain5')
-    archer_encrypted = config['my_duckdns'].get('archer_encrypted', '<hashes>')
+    DUCK_TOKEN = config['my_duckdns'].get('duck_token', 'none')
+    DOMAINS = config['my_duckdns'].get('domains', 'domain1,domain3,domain3,domain4,domain5')
+    ARCHER_ENCRYPTED = config['my_duckdns'].get('archer_encrypted', '<hashes>')
     login = config['my_duckdns'].get('archer_login', '<archer_login>')
     duckdns_fqdn = config['my_duckdns'].get('duckdns_fqdn', 'youduckdns.duckdns.org', )
     eml_from = config['my_duckdns'].get('eml_from', 'none')

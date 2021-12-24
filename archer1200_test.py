@@ -14,7 +14,7 @@ Test some functions of archer1200.Archer1200 module
 """
 
 def main():
-    my_router = archer1200.Archer1200(encrypted=archer_encrypted, username=archer_login)
+    my_router = archer1200.Archer1200(encrypted=ARCHER_ENCRYPTED, username=ARCHER_LOGIN)
     print('lang: ' + json.dumps(my_router.get_locale()))
     print('firmware: ' + json.dumps(my_router.get_firmware()))
     print('ledstatus: ' + json.dumps(my_router.get_led_status()))
@@ -31,16 +31,17 @@ def main():
     print('syslog types: ' + json.dumps(my_router.get_syslog_types()))
     print('syslog filter: ' + json.dumps(my_router.get_syslog_filter()))
     print('syslog log: ' + json.dumps(my_router.get_syslog_log()))
+    quit(1)
 
 
 if __name__ == "__main__":
     log_level = logging.DEBUG
-    # log_level = logging.INFO
+    log_level = logging.INFO
     logging.basicConfig(format='%(levelname)s:%(name)s:%(message)s', level=log_level)
     logger = logging.getLogger(__name__)
     logger.setLevel(log_level)
     config = configparser.ConfigParser()
     files = config.read(filenames='updateDuckDns.ini')
-    archer_encrypted = config['my_duckdns'].get('archer_encrypted', '<hashes>')
-    archer_login = config['my_duckdns'].get('archer_login', '<archer_login>')
+    ARCHER_ENCRYPTED = config['my_duckdns'].get('archer_encrypted', '<hashes>')
+    ARCHER_LOGIN = config['my_duckdns'].get('archer_login', '<archer_login>')
     main()
