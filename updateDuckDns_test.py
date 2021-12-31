@@ -7,7 +7,7 @@ from unittest.mock import patch, Mock
 import archer1200
 from updateDuckDns import check_ip_with_fqdn
 
-patcherArcher = Mock(spec=archer1200.Archer1200)
+patcher_archer = Mock(spec=archer1200.Archer1200)
 duckdns_fqdn = 'omvholblack.duckdns.org'
 
 

@@ -50,6 +50,14 @@ class Archer1200:
     url_cgi = url_base + 'cgi-bin/luci/;stok='
     url_js = url_base + 'webpages/js/libs/'
     url_web = url_base + 'webpages/'
+    session = None
+    username = ''
+    encrypted_password = ''
+    time_stamp = ''
+    token = ''
+    status_all = None
+    get_count = 0
+    vectors = None
 
     def __init__(self, encrypted, username=None):
         """
@@ -58,6 +66,7 @@ class Archer1200:
           - set cookie in requests session.
         :param encrypted:
         """
+        logger.debug(f'start')
         self.session = requests.session()
         self.username = username
         self.encrypted_password = encrypted
@@ -66,93 +75,145 @@ class Archer1200:
         self.status_all = None
         self.get_count = 0
         self.vectors = None
-        if self.username is not None:
+        self.is_cloud_login = self.get_cloud_login_status()
+        logger.debug(f'time_stamp: {self.time_stamp}, username: {self.username}')
+        if self.is_cloud_login:
             self.cloud_login(self.username, self.encrypted_password)
         else:
-            self.init_login()
+            self.local_login(self.encrypted_password)
+        logger.debug(f'end')
+
+    def str2bool(self, v: str) -> bool:
+        ret = str(v).lower() in ("yes", "true", "t", "1")
+        logger.debug(f'v: {v} = {ret}')
+        return ret
 
     def download_file(self, url, file_name):
         if len(self.token) == 0:
             logger.error("Not logged in, exiting")
             return
         try:
-            with urllib3.request.urlopen(url) as response, open(file_name, 'wb') as out_file:
+            with self.session.request.urlopen(url) as response, open(file_name, 'wb') as out_file:
                 shutil.copyfileobj(response, out_file)
         except HTTPError as http_err:
             logger.error(f'HTTP error occurred: {http_err}')  # Python 3.6
         except Exception as err:
             logger.error(f'Other error occurred: {err}')  # Python 3.6
 
+    def get_cloud_login_status(self):
+        logger.debug('START')
+        ret = False
+        json_response = self.get_jsonfrompost(url=Archer1200.url_cgi + '/login?form=check_factory_default',
+                                              data={'operation': 'read'})
+        logger.debug(
+            f'check_factory_default: success: {json_response["success"]}, is_default: {(json_response["data"]["is_default"])}')
+        if self.str2bool(json_response["success"]):
+            if self.str2bool(json_response['data']['is_default']):
+                logger.error("router is not configured or was reset, still with first login form")
+                quit(1)
+            ret = json_response['data']['cloud_ever_login']
+        else:
+            logger.error(f'check_factory_default: query failed, defaulting to false')
+            logger.debug(f'check_factory_default: query failed {json_response}')
+        logger.debug(f'END: {ret}')
+        return ret
+
     def get_timestamp(self):
         ret = ''
+        logger.debug('START')
         try:
-            response = requests.get(Archer1200.url_js)
+            response = self.session.get(Archer1200.url_js)
             m = re.search(r'(?<=encrypt\.)([0-9]+)\.js', response.text)
             ret = m.group(1)
         except urllib3.exceptions.MaxRetryError as mre:
-            logger.error(f'getTimeStamps: Max Retry Error error occurred: {mre}')
+            logger.error(f'Max Retry Error error occurred: {mre}')
         except socket.gaierror as gae:
-            logger.error(f'getTimeStamps: DNS resolution error: {gae}')
+            logger.error(f'DNS resolution error: {gae}')
         except ConnectionError as con_err:
-            logger.error(f'getTimeStamps: Connexion error occurred: {con_err}')
+            logger.error(f'Connexion error occurred: {con_err}')
         finally:
+            logger.debug(f'timestamp: {ret}, response: {response.text}')
+            logger.info(f'END: timestamp: {ret}')
             return ret
 
     def get_jsonfrompost(self, url, data):
         m = re.search(r'([a-zA-Z0-9]+\?[a-z=]+)', url)
         action = m.group(1).replace('?', '(').__add__(')')
-        logger.debug(f'get_jsonfrompost: getting {url} with {data}')
-        logger.info(f'get_jsonfrompost: getting {action}')
+        logger.debug(f'getting {url} with {data}')
+        logger.info(f' getting {data["operation"]} {action} ')
         ret = json.loads("{\"success\":false}")
         try:
             response = self.session.post(url, data)
 
-            logger.debug(f'get_jsonfrompost: url: {action}, response: {response.text}')
+            # logger.debug(f'url: {action}/{url}, response: {response}')
+            logger.debug(f'url: {action}/{url}, response.text: {response.text}')
             # If the response was successful, no Exception will be raised
             response.raise_for_status()
             ret = response.json()
-            logger.debug(f'get_jsonfrompost: {url}): json status: {ret["success"]}')
+            logger.debug(f'{url}): json status: {ret["success"]} , ret {ret}')
         except HTTPError as http_err:
-            logger.error(f'get_jsonfrompost: HTTP error occurred: {http_err} on {url}')  # Python 3.6
-            logger.info(f'get_jsonfrompost: HTTP error occurred: {http_err} on {action}')  # Python 3.6
-
+            logger.debug(f'HTTP error occurred: {http_err} on {action}/{url}, {response}')  # Python 3.6
+            logger.error(f'HTTP error occurred: {http_err} on {action}/{url}')  # Python 3.6
+        except ValueError as vae:
+            logger.debug(f'json error occurred: {vae} on {action}/{url}, {response}')  # Python 3.6
+            logger.error(f'json error occurred: {vae} on {action}/{url}')  # Python 3.6
         except Exception as err:
-            logger.info(f'get_jsonfrompost: Other error occurred: {err} on {action}')  # Python 3.6
-            logger.error(f'get_jsonfrompost: Other error occurred: {err} on {url}')  # Python 3.6
+            logger.debug(f'Other error occurred: {err} on {action}/{url}, {response}')  # Python 3.6
+            logger.error(f'Other error occurred: {err} on {action}/{url}')  # Python 3.6
         finally:
             # logger.info(f'{action}: json status: {response.json()["success"]}')
             return ret
 
     # TP link specific
     def cloud_login(self, username, password):
+        logger.debug(f'START: {username}/ {password}')
+        if username == '' or password == '':
+            logger.error("END: Expecting a username and a password to perform cloud login.")
+            exit
         json_response = self.get_jsonfrompost(url=Archer1200.url_cgi + '/login?form=cloud_login',
                                               data={'operation': 'login',
                                                     'username': username,
                                                     'password': password})
-        logger.debug(f'cloud_login: json: {json_response}')
-        if json_response['success']:
+        logger.debug(f'json: {json_response}')
+        if self.str2bool(json_response['success']):
             self.token = json_response['data']['stok']
-            logger.debug(f'cloud_login: stok: {self.token}')
-            logger.info(f'cloud login: {json_response["success"]}')
+            logger.debug(f'END: login success: stok: {self.token}, vectors: {self.vectors}')
+            logger.info(f'response:: {json_response["success"]}')
+        else:
+            self.token = None
+            self.vectors = None
+            logger.error(f'END: {json_response["errorcode"]}: {json_response["data"]["errorcode"]}')
 
-    def init_login(self):
+    def local_login(self, password):
+        """
+        perform local login to interface
+        never tested, always logged with cloud_login
+        :param password:
+        :return: 0 if ok else 1
+        """
+        logger.debug('START')
         # Not used as encryption was not transcoded to python, get encryption init values
-        json_response = self.get_jsonfrompost(url=Archer1200.url_cgi + '/login?form=login', data={'operation': 'read'})
-        if json_response['success']:
+        json_response = self.get_jsonfrompost(url=Archer1200.url_cgi + '/login?form=login',
+                                              data={'operation': 'read'})
+        # already connected ?
+        if self.str2bool(json_response['success']):
             self.vectors = json_response['data']['password']
             logger.debug(f'vectors: {self.vectors}')
 
         # login using encrypted password
-        json_response = self.get_jsonfrompost(url=Archer1200.url_cgi + '/login?form=login', data={'operation': 'login',
-                                                                                                  'password': self.encrypted_password})
+        json_response = self.get_jsonfrompost(url=Archer1200.url_cgi + '/login?form=login',
+                                              data={'operation': 'login', 'password': password})
 
-        if json_response['success']:
+        if self.str2bool(json_response['success']):
             self.token = json_response['data']['stok']
-            logger.debug(f'init_login: stok: {self.token}')
-            logger.info(f'login: {json_response["success"]}')
+            logger.debug(f'END: stok: {self.token}')
+            logger.info(f'response: {json_response["success"]}')
             return 0
         else:
-            logger.error(f'init_login: failed: json: {json_response}')
+            logger.error(f'END: {json_response["errorcode"]}: {json_response["data"]["errorcode"]}')
+            logger.debug(f'END: failed: json: {json_response}')
+            self.token = None
+            self.vectors = None
             return 1
 
     def get_generic_function(self, url, action):
@@ -161,16 +222,25 @@ class Archer1200:
         :return:
           json object converted to dictionary
         """
+        logger.debug('START')
         json_response = self.get_jsonfrompost(url=Archer1200.url_cgi + self.token + url, data=action)
-        if not json_response['success']:
+        logger.debug(f'{action} on {url}: {json_response}')
+        if not self.str2bool(json_response['success']):
             logger.error(f'Error on url: {url}, response: {json_response}')
             json_response['data'] = ''
             return json_response
+            logger.debug(f'{action} on {url}: {json_response}')
         try:
-            to_return = json_response['data']
-        except KeyError:
+            if 'data' in json_response.keys():
+                to_return = json_response['data']
+                logger.debug(f'{action} on {url}: {to_return}')
+            else:
+                to_return = json_response
+                logger.debug(f'{action} on {url}: {json_response}')
+        except KeyError as ke:
+            logger.error(f'{ke}: {action} on {url}: {json_response}')
             to_return = json_response
-
+        logger.debug(f'END: {to_return}')
         return to_return
 
     def get_generic_read_function(self, url, action={'operation': 'read'}):
@@ -182,7 +252,7 @@ class Archer1200:
         return self.get_generic_function(url=url, action=action)
 
     @time_cache(max_age=max_age_ttl)
-    def get_cached_read_function(self, url, action={'operation': 'read'}, field=None):
+    def get_cached_read_function(self, url, action={'operation': 'read'}, field=None) -> dict:
         """
         template get from read operation
         search field in cached data_all if present.
@@ -191,12 +261,12 @@ class Archer1200:
         """
         to_return = 'None found'
         if len(self.token) == 0:
-            logger.error("get_cached_read_function: Not logged in, exiting")
+            logger.error("Not logged in, exiting")
             return 'None found'
         to_return = self.get_generic_read_function(url=url, action=action)
         if field is not None and field in to_return.keys:
-            to_return= to_return[field]
-        logger.debug(f'get_cached_read_function: {url}: {to_return}')
+            to_return = to_return[field]
+        logger.debug(f'{url}: {to_return}')
         return to_return
 
     def get_generic_write_function(self, url):
@@ -208,7 +278,7 @@ class Archer1200:
         if len(self.token) == 0:
             logger.error("Not logged in, exiting")
             return
-        logger.debug(f'get_generic_write_function: {url}')
+        logger.debug(f'{url}')
         return self.get_generic_function(url=url, action={'operation': 'write'})
 
     def get_field_from_status_all(self, field=None):
@@ -218,15 +288,15 @@ class Archer1200:
           json object
         """
         status_all = self.get_cached_read_function(url='/admin/status?form=all')
-        logger.debug(f'get_field_from_status_all: searching for {field}: {json.dumps(status_all).count(field)}')
+        logger.debug(f'searching for {field}: {json.dumps(status_all).count(field)}')
         if field is None:
             return status_all
         to_return = 'None found'
         try:
             to_return = status_all[field]
-            logger.debug(f'get_field_from_status_all: found field: {field}: {to_return}')
+            logger.debug(f'found field: {field}: {to_return}')
         except Exception as e:
-            logger.info(f'get_field_from_status_all: field not found: {e}')
+            logger.info(f'field not found: {e}')
 
         return to_return
 
@@ -239,7 +309,10 @@ class Archer1200:
         to_return = self.get_field_from_status_all(field)
         if to_return is not None:
             return to_return
-        return self.get_cached_read_function(url='/admin/network?form=status_ipv4', field=field)
+        tmp = self.get_cached_read_function(url='/admin/network?form=status_ipv4', field=field)
+        if field in tmp.keys():
+            to_return = tmp[field]
+        return to_return
 
     def get_lan_ip(self) -> str:
         """
@@ -255,7 +328,13 @@ class Archer1200:
         :return:
         """
         field = 'internet_status'
-        return self.get_field_from_status_all(field)
+        to_return = self.get_field_from_status_all(field)
+        if to_return == 'None found':
+            tmp = self.get_cached_read_function(url='/admin/status?form=internet')
+            logger.debug(f'{tmp}')
+            if field in tmp.keys():
+                to_return = tmp[field]
+        return to_return
 
     def get_cpu_usage(self) -> float:
         to_return = self.get_field_from_status_all('cpu_usage')
@@ -277,12 +356,14 @@ class Archer1200:
         if len(self.token) == 0:
             logger.error("Not logged in, exiting")
             return
-        return self.get_cached_read_function('admin/network?form=wan_ipv4_dynamic')
+        return self.get_cached_read_function(url='/admin/network?form=wan_ipv4_dynamic')
 
     def get_locale(self) -> dict:
         if len(self.token) == 0:
+            dic = {}
+            dic.append('None found')
             logger.error("Not logged in, exiting")
-            return 'None found'
+            return dic
         return self.get_cached_read_function(url='/locale?form=lang')
 
     def get_router_mode(self) -> dict:
@@ -340,7 +421,7 @@ class Archer1200:
             to_return = status
         return to_return
 
-    def get_led_wan_ipv4_protos(self):
+    def get_wan_ipv4_protos(self):
         status = self.get_cached_read_function(url='/admin/network?form=wan_ipv4_protos')
         to_return = 'None found'
         if status != to_return:
@@ -376,8 +457,85 @@ class Archer1200:
         logout when finished
         :return:
         """
-        if len(self.token) == 0:
+        if self.token == None or len(self.token) == 0:
             logger.error("Not logged in, exiting")
             return
         json_response = self.get_generic_write_function(url='/admin/system?form=logout')
-        logger.info(f"logout: {json_response['success']}")
+        logger.info(f"{json_response['success']}")
+
+    # Higher level api
+    def get_value_from_keys(self, dict, field) -> str:
+        to_return = dict
+        if field in dict.keys():
+            to_return = dict[field]
+        return to_return
+
+    def get_lang(self) -> str:
+        """
+        get device language
+        :return: iso language
+        """
+        return self.get_value_from_keys(self.get_locale(), 'locale')
+
+    def get_model(self) -> str:
+        """
+        get device model
+        :return: iso language
+        """
+        return self.get_value_from_keys(self.get_locale(), 'model')
+
+    def get_firm_model(self) -> str:
+        """
+        get device model
+        :return: "Archer C1200"
+        """
+        return self.get_value_from_keys(self.get_firmware(), 'model')
+
+    def get_firm_hardware(self) -> str:
+        """
+        get hardware version
+        :return: "Archer C1200 v2.0"
+        """
+        return self.get_value_from_keys(self.get_firmware(), 'hardware_version')
+
+    def get_firm_version(self) -> str:
+        """
+        get firmware version
+        :return: "2.0.2 Build 20180118 rel.38979 (EU)"
+        """
+        return self.get_value_from_keys(self.get_firmware(), 'firmware_version')
+
+    def get_firm_totaltime(self) -> str:
+        """
+        get firmware version
+        :return: 90
+        """
+        return self.get_value_from_keys(self.get_firmware(), 'totaltime')
+
+    def get_firm_default(self) -> bool:
+        """
+        return is_default value
+        :return: true/false
+        """
+        return self.get_value_from_keys(self.get_firmware(), 'is_default')
+
+    def get_led_enable(self) -> str:
+        """
+        return led status
+        :return: on/off
+        """
+        return self.get_value_from_keys(self.get_led_status(), 'enable')
+
+    def get_led_timeset(self) -> str:
+        """
+        return weither the night times are set or not
+        :return: true/false
+        """
+        return self.get_value_from_keys(self.get_led_status(), 'time_set')
+
+    def get_led_ledpm(self) -> str:
+        """
+        return led night enabled status
+        :return: true/false
+        """
+        return self.get_value_from_keys(self.get_led_status(), 'ledpm_support')

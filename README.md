@@ -45,5 +45,23 @@ suggested for devs:
 ### Run tests
 * update updateDuckDns.ini with modem's credentials
 * run tests: 
-  * ./archer1200_test.py
-  * ./updateDuckDns_test.py
+  * fonctionnal tests:
+    * ./archer1200_test.py -f
+    * ./updateDuckDns_test.py
+  * unittests: 
+    * ./archer1200_test.py -u
+
+* coverage
+  * pré-requis: pip3 install coverage
+  * run: `coverage run archer1200_test.py -u`
+  * report html: `coverage html`
+  * report json: `coverage json`
+
+### Modem login status
+
+using url with form=check_factory_default
+if is_default is 
+* true => first login form ( form to set a password, not handled by this module )
+* false 
+  * cloud_ever_login == true => cloud login form (email + pwd)
+  * cloud_ever_login == false => login form ( password only)
