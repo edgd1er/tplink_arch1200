@@ -5,13 +5,17 @@ import configparser
 # official modules
 import json
 import logging.config
+import os
+import sys
 import unittest
 from unittest.mock import patch
 
 from requests import Response
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+
 # Homemade Modules
-import archer1200
 from archer1200 import Archer1200
 
 """
@@ -43,9 +47,9 @@ class Archer1200Case(unittest.TestCase):
                                          b'{"success": "true", "data": {"password": "V_SECRET", "stok": "mocked_token"}}')
 
         post.side_effect = [postRespLoginType, postRespLogin]
-        cls.router = Archer1200(username=ARCHER_LOGIN, encrypted=ARCHER_ENCRYPTED)
+        cls.router = Archer1200(username="ARCHER_LOGIN", encrypted="ARCHER_ENCRYPTED")
         get.called_once_with('http://tplinkwifi.net/webpages/js/libs')
-
+        logger = logging.getLogger(__name__)
         logger.debug(f'post was called {post.call_count} >= 3')
         p_call = post.call_args
         pargs, pkwargs = p_call
@@ -222,6 +226,7 @@ class Archer1200Case(unittest.TestCase):
                                              'wireless_5g_wds_status': 'disable'}}
         bstatus = json.dumps(dstatus).encode('utf-8')
         post.return_value = self.get_response('', 200, bstatus)
+        logger = logging.getLogger(__name__)
         logger.debug(f'cpu: {self.router.get_cpu_usage()}')
         logger.debug(f'mem: {self.router.get_mem_usage()}')
         self.assertEqual(self.router.get_cpu_usage(), 0.33)
@@ -344,7 +349,7 @@ def secondary(my_router):
 if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     config = configparser.ConfigParser()
-    files = config.read(filenames='updateDuckDns.ini')
+    files = config.read(filenames='updateDuckDns.ini-dist')
     if files == '':
         logger.error(f'Cannot read file updateDuckDns.ini')
     ARCHER_ENCRYPTED = config['my_duckdns'].get('archer_encrypted', '<hashes>')
@@ -382,7 +387,7 @@ if __name__ == "__main__":
 
     if args.functionnal:
         logger.info("*************************** Functionnal *********************************")
-        my_router = archer1200.Archer1200(encrypted=ARCHER_ENCRYPTED, username=ARCHER_LOGIN)
+        my_router = Archer1200(encrypted=ARCHER_ENCRYPTED, username=ARCHER_LOGIN)
         main(my_router)
         secondary(my_router)
         my_router.logout()

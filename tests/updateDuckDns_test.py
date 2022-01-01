@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
+import sys
 import unittest
 from unittest.mock import patch, Mock
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import archer1200
 from updateDuckDns import check_ip_with_fqdn
@@ -84,4 +88,9 @@ class UpdateDuckDnstCase(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    tests = unittest.TestLoader().loadTestsFromTestCase(UpdateDuckDnstCase)
+    suite = unittest.TestSuite([tests])
+    print(suite)
+    runner = unittest.TextTestRunner()
+    runner.run(suite)
+    #unittest.main()
