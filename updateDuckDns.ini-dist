@@ -1,7 +1,9 @@
 [my_duckdns]
-duck_token = <duck_token>
+archer_url = "http://tplinwifi.net/"
+archer_encrypted = <hashes>
+archer_login = <user@email.com>
+duck_token = <duck-dns-token>
 domains = domain1,domain3,domain3,domain4,domain5
-encrypted = <hashes>
 duckdns_fqdn = <yourduck.duckdns.org>
 eml_from=<sender>
 eml_to=<recipient>

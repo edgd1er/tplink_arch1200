@@ -124,23 +124,21 @@ def main():
         DOMAINS = args.domains
 
     force = args.force
+    log_level = logging.INFO
     if args.verbose:
         log_level = logging.DEBUG
-        logging.getLogger('archer1200').setLevel(log_level)
-        logging.getLogger('duckdns').setLevel(log_level)
-    else:
-        log_level = logging.INFO
-
     if args.silent:
         log_level = logging.ERROR
-        logging.getLogger('archer1200').setLevel(log_level)
-        logging.getLogger('duckdns').setLevel(log_level)
 
     logger.setLevel(log_level)
+    logging.getLogger('archer1200').setLevel(log_level)
+    logging.getLogger('duckdns').setLevel(log_level)
+    logger.info(f'script dir: {ldir}')
+
     # logging.basicConfig(format='%(levelname)s:%(name)s:%(message)s', level=log_level)
     logger.debug(f'Token value: {DUCK_TOKEN}, domains: {DOMAINS}, fqdn: {duckdns_fqdn}, {args}')
 
-    my_router = archer1200.Archer1200(encrypted=ARCHER_ENCRYPTED)
+    my_router = archer1200.Archer1200(username=ARCHER_LOGIN,encrypted=ARCHER_ENCRYPTED, url=ARCHER_URL)
     if my_router.get_timestamp() == '':
         logger.error(f'Error archer1200.Archer1200: cannot connect to router.')
         send_mail(f'Error archer1200.Archer1200: cannot connect to router.', RUN_BY_CRON)
@@ -167,7 +165,6 @@ def main():
 
 
 if __name__ == "__main__":
-    print(f'script dir: {ldir}')
     RUN_BY_CRON = os.environ.get('RUN_BY_CRON')
     logging.config.fileConfig(fname=ldir + os.path.sep + 'updateDuckDns_logging.ini', disable_existing_loggers=False)
     logger = logging.getLogger(__name__)
@@ -178,7 +175,8 @@ if __name__ == "__main__":
     DUCK_TOKEN = config['my_duckdns'].get('duck_token', 'none')
     DOMAINS = config['my_duckdns'].get('domains', 'domain1,domain3,domain3,domain4,domain5')
     ARCHER_ENCRYPTED = config['my_duckdns'].get('archer_encrypted', '<hashes>')
-    login = config['my_duckdns'].get('archer_login', '<archer_login>')
+    ARCHER_URL = config['my_duckdns'].get('archer_url', "http://tplinkwifi.net/")
+    ARCHER_LOGIN = config['my_duckdns'].get('archer_login', '<archer_login>')
     duckdns_fqdn = config['my_duckdns'].get('duckdns_fqdn', 'youduckdns.duckdns.org', )
     eml_from = config['my_duckdns'].get('eml_from', 'none')
     eml_to = config['my_duckdns'].get('eml_to', 'none')
