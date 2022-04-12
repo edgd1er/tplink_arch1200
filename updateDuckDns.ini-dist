@@ -11,3 +11,4 @@ smtp_server= smtp.server.yours
 smtp_port = <int>
 smtp_user = <smtp_loginname>
 smtp_pass = <smtp_password>
+remote_dir = <root dir to store logs & sql >

@@ -77,7 +77,6 @@ def check_ip_with_fqdn(my_router, duckdns_fqdn):
 def main():
     clear = False
     txt = None
-    rdir = '/media/usb1/docker/duckdns'
     log_dir = f'{ldir}/logs'
     sql_dir = f'{ldir}/sql'
     global DUCK_TOKEN
@@ -87,8 +86,12 @@ def main():
     global RUN_BY_CRON
 
     if socket.gethostname().find('holdom') >= 0:
-        log_dir = f'{rdir}/logs'
-        sql_dir = f'{rdir}/sql'
+        log_dir = f'{REMOTE_DIR}/logs'
+        sql_dir = f'{REMOTE_DIR}/sql'
+
+    if not os.path.isdir(REMOTE_DIR):
+        logger.error(f'remote_dir is not set or does not exists: {REMOTE_DIR}')
+        quit()
 
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(sql_dir, exist_ok=True)
@@ -166,6 +169,9 @@ def main():
 
 if __name__ == "__main__":
     RUN_BY_CRON = os.environ.get('RUN_BY_CRON')
+    if os.path.isfile(ldir + os.path.sep + 'updateDuckDns_logging.ini') == False:
+        print(f'updateDuckDns_logging.ini not found, please define one from sample: {ldir + os.path.sep + "updateDuckDns_logging.ini" }')
+        quit()
     logging.config.fileConfig(fname=ldir + os.path.sep + 'updateDuckDns_logging.ini', disable_existing_loggers=False)
     logger = logging.getLogger(__name__)
     # configParser
@@ -173,6 +179,7 @@ if __name__ == "__main__":
     files = config.read(filenames=ldir + os.path.sep + 'updateDuckDns.ini')
     # logger.debug(f'file read read: {files}, sections: {config.sections()}, config: {config}')
     DUCK_TOKEN = config['my_duckdns'].get('duck_token', 'none')
+    REMOTE_DIR = config['my_duckdns'].get('remote_dir', os.path.curdir)
     DOMAINS = config['my_duckdns'].get('domains', 'domain1,domain3,domain3,domain4,domain5')
     ARCHER_ENCRYPTED = config['my_duckdns'].get('archer_encrypted', '<hashes>')
     ARCHER_URL = config['my_duckdns'].get('archer_url', "http://tplinkwifi.net/")
