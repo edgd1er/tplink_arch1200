@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+updateDuckDNs: check current ip with the one returned by dns resolution
+if ips are differents then duckdns ns ip is updated.
+"""
 
 # official modules
 import argparse
@@ -17,7 +21,7 @@ import archer1200
 import duckdns
 
 # Variables
-ldir = os.path.dirname(os.path.realpath(__file__))
+LDIR = os.path.dirname(os.path.realpath(__file__))
 logger = {}
 
 
@@ -47,7 +51,8 @@ def send_mail(message='', run_by_cron=0):
             mailserver.sendmail(eml_from, eml_to, msg)
         except smtplib.SMTPException as e:
             print(e)
-        mailserver.quit()
+        finally:
+            mailserver.quit()
 
 
 def check_ip_with_fqdn(my_router, duckdns_fqdn):
@@ -69,16 +74,16 @@ def check_ip_with_fqdn(my_router, duckdns_fqdn):
     if ip != ip_from_dns_duck:
         logger.info('update duckdns ip needed')
         return True
-    else:
-        logger.info('update duckdns ip not needed')
-        return False
+
+    logger.info('update duckdns ip not needed')
+    return False
 
 
 def main():
     clear = False
     txt = None
-    log_dir = f'{ldir}/logs'
-    sql_dir = f'{ldir}/sql'
+    log_dir = f'{LDIR}/logs'
+    sql_dir = f'{LDIR}/sql'
     global DUCK_TOKEN
     global DOMAINS
     global ARCHER_ENCRYPTED
@@ -95,6 +100,7 @@ def main():
 
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(sql_dir, exist_ok=True)
+    logger.info(f'log_dir: {log_dir}, sql_dir: {sql_dir}')
 
     # argParser
     parser = argparse.ArgumentParser(
@@ -136,12 +142,12 @@ def main():
     logger.setLevel(log_level)
     logging.getLogger('archer1200').setLevel(log_level)
     logging.getLogger('duckdns').setLevel(log_level)
-    logger.info(f'script dir: {ldir}')
+    logger.info(f'script dir: {LDIR}')
 
     # logging.basicConfig(format='%(levelname)s:%(name)s:%(message)s', level=log_level)
     logger.debug(f'Token value: {DUCK_TOKEN}, domains: {DOMAINS}, fqdn: {duckdns_fqdn}, {args}')
 
-    my_router = archer1200.Archer1200(username=ARCHER_LOGIN,encrypted=ARCHER_ENCRYPTED, url=ARCHER_URL)
+    my_router = archer1200.Archer1200(username=ARCHER_LOGIN, encrypted=ARCHER_ENCRYPTED, url=ARCHER_URL)
     if my_router.get_timestamp() == '':
         logger.error(f'Error archer1200.Archer1200: cannot connect to router.')
         send_mail(f'Error archer1200.Archer1200: cannot connect to router.', RUN_BY_CRON)
@@ -160,23 +166,24 @@ def main():
                                          dry_run=args.dryrun)
         fname = datetime.now().strftime("%Y%m%d_%H%M_duck.log")
         logger.info(out.strip().replace('\n', ' ') + f' written to {log_dir}/{fname}, forced: {force}')
-        send_mail(out, RUN_BY_CRON)
         with open(os.path.join(log_dir, fname), 'x+') as duckstats:
             duckstats.write(out)
+        send_mail(out, RUN_BY_CRON)
 
     # send_mail(f'RUN_BY_CRON: {RUN_BY_CRON}, this is a test message to test mail sending', RUN_BY_CRON)
 
 
 if __name__ == "__main__":
-    RUN_BY_CRON = os.environ.get('RUN_BY_CRON')
-    if os.path.isfile(ldir + os.path.sep + 'updateDuckDns_logging.ini') == False:
-        print(f'updateDuckDns_logging.ini not found, please define one from sample: {ldir + os.path.sep + "updateDuckDns_logging.ini" }')
+    RUN_BY_CRON = int(os.environ.get('RUN_BY_CRON', '0'))
+    if not os.path.isfile(LDIR + os.path.sep + 'updateDuckDns_logging.ini'):
+        print(
+            f'updateDuckDns_logging.ini not found, please define one from sample: {LDIR + os.path.sep + "updateDuckDns_logging.ini"}')
         quit()
-    logging.config.fileConfig(fname=ldir + os.path.sep + 'updateDuckDns_logging.ini', disable_existing_loggers=False)
+    logging.config.fileConfig(fname=LDIR + os.path.sep + 'updateDuckDns_logging.ini', disable_existing_loggers=False)
     logger = logging.getLogger(__name__)
     # configParser
     config = configparser.ConfigParser()
-    files = config.read(filenames=ldir + os.path.sep + 'updateDuckDns.ini')
+    files = config.read(filenames=LDIR + os.path.sep + 'updateDuckDns.ini')
     # logger.debug(f'file read read: {files}, sections: {config.sections()}, config: {config}')
     DUCK_TOKEN = config['my_duckdns'].get('duck_token', 'none')
     REMOTE_DIR = config['my_duckdns'].get('remote_dir', os.path.curdir)
@@ -188,7 +195,7 @@ if __name__ == "__main__":
     eml_from = config['my_duckdns'].get('eml_from', 'none')
     eml_to = config['my_duckdns'].get('eml_to', 'none')
     smtp_server = config['my_duckdns'].get('smtp_server', '')
-    smtp_port = config['my_duckdns'].get('smtp_port')
+    smtp_port = int(config['my_duckdns'].get('smtp_port'))
     smtp_user = config['my_duckdns'].get('smtp_user')
     smtp_pass = config['my_duckdns'].get('smtp_pass')
     main()
