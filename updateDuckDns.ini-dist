@@ -12,3 +12,7 @@ smtp_port = <int>
 smtp_user = <smtp_loginname>
 smtp_pass = <smtp_password>
 remote_dir = <root dir to store logs & sql >
+[noip]
+login = <user@email.com>
+passwd = <no ip password>
+hosts = host1,host2,host3,...

@@ -349,9 +349,10 @@ def secondary(my_router):
 if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     config = configparser.ConfigParser()
-    files = config.read(filenames='updateDuckDns.ini-dist')
+    if os.path.exists('updateDuckDns.ini'):
+        files = config.read(filenames='updateDuckDns.ini')
     if files == '':
-        logger.error(f'Cannot read file updateDuckDns.ini')
+        logger.error(f'Cannot read file updateDuckDns.ini ')
     ARCHER_ENCRYPTED = config['my_duckdns'].get('archer_encrypted', '<hashes>')
     ARCHER_LOGIN = config['my_duckdns'].get('archer_login', '<archer_login>')
     # argParser

@@ -19,6 +19,7 @@ from datetime import datetime
 # Homemade Modules
 import archer1200
 import duckdns
+import noip
 
 # Variables
 LDIR = os.path.dirname(os.path.realpath(__file__))
@@ -55,17 +56,10 @@ def send_mail(message='', run_by_cron=0):
             mailserver.quit()
 
 
-def check_ip_with_fqdn(my_router, duckdns_fqdn):
+def check_ip_with_fqdn(ip, duckdns_fqdn):
     """ return true if dns resolution is not correct
     :rtype: object
     """
-    ip = my_router.get_wan_ip()
-    internet = my_router.get_internet_status()
-    my_router.logout()
-
-    if internet is None or str(internet).find('disconnected') > 0:
-        logger.error(f'Error, no connection to internet ({str(internet)})')
-        return False
 
     ip_from_dns_duck = socket.gethostbyname(duckdns_fqdn)
     logger.debug(f' router ip: {ip} ==  {duckdns_fqdn}: {ip_from_dns_duck}')
@@ -89,6 +83,9 @@ def main():
     global ARCHER_ENCRYPTED
     global ARCHER_LOGIN
     global RUN_BY_CRON
+    global NOIP_LOGIN
+    global NOIP_PASSWD
+    global NOIP_HOST
 
     if socket.gethostname().find('holdom') >= 0:
         log_dir = f'{REMOTE_DIR}/logs'
@@ -142,6 +139,7 @@ def main():
     logger.setLevel(log_level)
     logging.getLogger('archer1200').setLevel(log_level)
     logging.getLogger('duckdns').setLevel(log_level)
+    logging.getLogger('noip').setLevel(log_level)
     logger.info(f'script dir: {LDIR}')
 
     # logging.basicConfig(format='%(levelname)s:%(name)s:%(message)s', level=log_level)
@@ -153,24 +151,35 @@ def main():
         send_mail(f'Error archer1200.Archer1200: cannot connect to router.', RUN_BY_CRON)
         exit(1)
 
-    if check_ip_with_fqdn(my_router, duckdns_fqdn) or force:
-        my_duck_dns = duckdns.duckdns(token=DUCK_TOKEN, domains=DOMAINS)
-        # ip = my_duck_dns.get_external_ip2()
-        ip = my_router.get_wan_ip()
-        if ip == '':
-            logger.error(f'Error archer1200.Archer1200: cannot get wan from router.')
-            send_mail(f'Error archer1200.Archer1200: cannot get wan from router.', RUN_BY_CRON)
-            exit(1)
+    internet = my_router.get_internet_status()
+    if internet is None or str(internet).find('disconnected') > 0:
+        logger.error(f'Error, no connection to internet ({str(internet)})')
+        return False
 
-        out = my_duck_dns.duckdns_update(ip=ip, verbose=args.verbose, clear=clear, txt=txt, ip6=None,
-                                         dry_run=args.dryrun)
+    # ip = my_duck_dns.get_external_ip2()
+    ip = my_router.get_wan_ip()
+    if ip == '':
+        logger.error(f'Error archer1200.Archer1200: cannot get wan from router.')
+        send_mail(f'Error archer1200.Archer1200: cannot get wan from router.', RUN_BY_CRON)
+        exit(1)
+
+    # check for duckdns
+    my_duck_dns = duckdns.duckdns(token=DUCK_TOKEN, domains=DOMAINS, force=force, ip=ip, txt=txt, dry_run=args.dryrun)
+    out = my_duck_dns.check_and_update()
+    if '' != out:
         fname = datetime.now().strftime("%Y%m%d_%H%M_duck.log")
-        logger.info(out.strip().replace('\n', ' ') + f' written to {log_dir}/{fname}, forced: {force}')
+        logger.debug(f'name: {fname}, out: {out}')
+        logger.info(out.strip().replace('\n', ' ') + f' written to {log_dir}/{fname}, forced: {args.force}')
         with open(os.path.join(log_dir, fname), 'x+') as duckstats:
             duckstats.write(out)
         send_mail(out, RUN_BY_CRON)
 
-    # send_mail(f'RUN_BY_CRON: {RUN_BY_CRON}, this is a test message to test mail sending', RUN_BY_CRON)
+    # check no ip
+    my_noip = noip.noip(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip)
+    my_noip.check_and_update()
+
+    # End
+    my_router.logout()
 
 
 if __name__ == "__main__":
@@ -198,6 +207,9 @@ if __name__ == "__main__":
     smtp_port = int(config['my_duckdns'].get('smtp_port'))
     smtp_user = config['my_duckdns'].get('smtp_user')
     smtp_pass = config['my_duckdns'].get('smtp_pass')
+    NOIP_LOGIN = config['noip'].get('login')
+    NOIP_PASSWD = config['noip'].get('passwd')
+    NOIP_HOSTS = config['noip'].get('hosts')
     main()
 
 # res2 = js2py.eval_js()

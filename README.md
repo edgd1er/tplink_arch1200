@@ -1,12 +1,11 @@
 # tplink_arch1200
 
-Update duckdns records using ip given in admin interface of the tplink archer C1200.
+Update duckdns records using ip given in admin interface of the tplink archer C1200. Also if [noip] part in updateDuckDns.ini is valued, noip fqdn's ip are updated.
 
-tool to update duckdns.org dns record get information from tplink's router-modem
-
-Two classes are implemented:
+Three classes are implemented:
 - duckdns: to interact with [duckdns API](https://www.duckdns.org/spec.jsp)
 - archer1200: to get information from tplink archer 1200
+- noip: to interact with [noip api](https://www.noip.com/integrate/request)
 
 /!\ password encryption is not implemented. archer2000 initialisation need it.
 
@@ -34,6 +33,19 @@ $('input#cloud-first-login-password').removeClass("hidden")
 $('input#login-password').val()
 $('form#cloud-form-login').submit()
 ```
+
+### Principle
+
+* get modem wan address
+* check dns resolution of duckdns and no ip hosts against wan ip
+* update duckdns and noip if needed
+* write a log and send a mail of actions
+
+
+### Configuration
+
+* copy updateDuckDns.ini-dist to updateDuckDns.ini
+* update key values in updateDuckDns.ini.
 
 ### virtual environment
 suggested for devs:
