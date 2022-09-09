@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
-name: test TP Link Archer C1200 API
+name: test dyndns
 
 on:
   push:
@@ -25,11 +25,13 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Unit Testing + coverage
       run: |
-        coverage run tests/test_archer1200.py -u -d
+        coverage run tests/test_duckdns.py -u -d
+        coverage run tests/test_noip.py -u -d
         coverage report
     - name: Test with pytest unittest
       run: |
-        pytest -v tests/test_archer1200.py
+        pytest -v tests/test_duckdns.py
+        pytest -v tests/test_noip.py
 
   lint:
       runs-on: ubuntu-latest

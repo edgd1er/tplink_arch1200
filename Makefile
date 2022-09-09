@@ -20,9 +20,11 @@ flake: ## lint python files
 
 test: ## run coverage with UT
 		@echo "run unittest + cover"
-		coverage run tests/updateDuckDns_test.py
-		coverage run tests/archer1200_test.py -u -d
-		pytest --cov=.
+		coverage run -a tests/test_duckdns.py -u -d
+		coverage run -a tests/test_noip.py -u -d
+		coverage run -a tests/test_archer1200.py -u -d
+		#coverage run tests/test_updateDuckDns.py
+		pytest
 		coverage html
 		coverage report
 

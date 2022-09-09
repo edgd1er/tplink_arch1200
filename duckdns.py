@@ -3,7 +3,6 @@
 import logging
 import os
 import socket
-
 import requests
 
 # Largely inspired by
@@ -13,7 +12,7 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-class duckdns:
+class Duckdns:
     """
     duckdns client to update domains according to specs
     https://www.duckdns.org/spec.jsp

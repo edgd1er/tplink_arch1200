@@ -14,14 +14,14 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-class noip:
+class NoIp:
     """
     duckdns client to update domains according to specs
     https://www.duckdns.org/spec.jsp
 
     largely inspired from https://github.com/hbldh/duckdns-upd8/blob/master/duckdns.py
     """
-    duckdns_url = "https://www.duckdns.org/update"
+    noip_url = "https://www.duckdns.org/update"
 
     def __init__(self, login='', passwd='', hosts='', dry_run=False, ip=None, force=False):
         """
@@ -88,7 +88,7 @@ class noip:
         params = {
             "b64creds": base64.standard_b64encode(encbyt),
             "hostname": self.hosts,
-            "myip": ip if ip else self.get_external_ip(),
+            "myip": ip if ip else self.ip,
         }
         if dry_run or self.dry_run:
             logger.debug(f'DRYRUN: updating with {params}')

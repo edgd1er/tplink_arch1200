@@ -25,11 +25,11 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Unit Testing
       run: |
-        coverage run tests/updateDuckDns_test.py
+        coverage run tests/test_updateDuckDns.py
         coverage report
     - name: Test with pytest unittest
       run: |
-        pytest -v --cov=updateDuckDns tests/updateDuckDns_test.py
+        pytest -v --cov=updateDuckDns tests/test_updateDuckDns.py
 
   lint:
     runs-on: ubuntu-latest

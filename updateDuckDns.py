@@ -55,24 +55,6 @@ def send_mail(message='', run_by_cron=0):
         finally:
             mailserver.quit()
 
-
-def check_ip_with_fqdn(ip, duckdns_fqdn):
-    """ return true if dns resolution is not correct
-    :rtype: object
-    """
-
-    ip_from_dns_duck = socket.gethostbyname(duckdns_fqdn)
-    logger.debug(f' router ip: {ip} ==  {duckdns_fqdn}: {ip_from_dns_duck}')
-
-    # tp link has updated its dns but need to update duckdns
-    if ip != ip_from_dns_duck:
-        logger.info('update duckdns ip needed')
-        return True
-
-    logger.info('update duckdns ip not needed')
-    return False
-
-
 def main():
     clear = False
     txt = None
@@ -164,7 +146,7 @@ def main():
         exit(1)
 
     # check for duckdns
-    my_duck_dns = duckdns.duckdns(token=DUCK_TOKEN, domains=DOMAINS, force=force, ip=ip, txt=txt, dry_run=args.dryrun)
+    my_duck_dns = duckdns.Duckdns(token=DUCK_TOKEN, domains=DOMAINS, force=force, ip=ip, txt=txt, dry_run=args.dryrun)
     out = my_duck_dns.check_and_update()
     if '' != out:
         fname = datetime.now().strftime("%Y%m%d_%H%M_duck.log")
@@ -175,7 +157,7 @@ def main():
         send_mail(out, RUN_BY_CRON)
 
     # check no ip
-    my_noip = noip.noip(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip)
+    my_noip = noip.NoIp(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip)
     my_noip.check_and_update()
 
     # End
