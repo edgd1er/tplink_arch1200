@@ -8,12 +8,13 @@ import logging.config
 import os
 import sys
 import unittest
+from _socket import gaierror
 from unittest.mock import patch
 
 from requests import Response
+from urllib3.exceptions import MaxRetryError
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 
 # Homemade Modules
 from archer1200 import Archer1200
@@ -51,6 +52,7 @@ class Archer1200Case(unittest.TestCase):
         get.called_once_with('http://tplinkwifi.net/webpages/js/libs')
         logger = logging.getLogger(__name__)
         logger.debug(f'post was called {post.call_count} >= 3')
+        print(f'post was called {post.call_count} >= 3')
         p_call = post.call_args
         pargs, pkwargs = p_call
         # useless not control on calling args when using side_effect
@@ -80,6 +82,29 @@ class Archer1200Case(unittest.TestCase):
         expected = "987654321"
         self.assertEqual(expected, timestamp)
 
+    @patch('archer1200.logger')
+    @patch('archer1200.requests.Session.get')
+    def test_get_timestamp_ko_MaxRetryError(self, get_mock, log_mock):
+        get_mock.side_effect = MaxRetryError(None, "modemUrl", "mockException")
+        self.assertEqual('', self.router.get_timestamp())
+        print(log_mock.error.call_args_list)
+        print(log_mock.error.call_count)
+        self.assertTrue(log_mock.error.called)
+
+    @patch('archer1200.logger')
+    @patch('archer1200.requests.Session.get')
+    def test_get_timestamp_ko_gaierror(self, get_mock, log_mock):
+        get_mock.side_effect = gaierror()
+        self.assertEqual('', self.router.get_timestamp())
+        print(log_mock.error.call_args_list)
+        print(log_mock.error.call_count)
+        self.assertTrue(log_mock.error.called)
+
+    @patch('archer1200.requests.Session.get')
+    def test_get_timestamp_ko_connectionerror(self, get_mock):
+        get_mock.side_effect = ConnectionError()
+        self.assertEqual('', self.router.get_timestamp())
+
     @patch('archer1200.requests.Session.post')
     def test_get_jsonfrompost_when_error_404(self, post):
         post.return_value = self.get_response("", 404, b'{}')
@@ -89,6 +114,10 @@ class Archer1200Case(unittest.TestCase):
         ret = self.router.get_jsonfrompost(url=my_url, data=my_data)
         self.assertEqual(False, ret['success'])
         post.assert_called_once_with(my_url, my_data)
+
+    @patch('archer1200.requests.Session.post')
+    def test_login_with_cloud_login_failed_empty_login(self, post):
+        self.assertRaises(SystemExit, self.router.cloud_login, '', None)
 
     @patch('archer1200.requests.Session.post')
     def test_login_with_cloud_login_ok(self, post):
@@ -244,7 +273,7 @@ class Archer1200Case(unittest.TestCase):
                                              'wan_ipv4_conntype': 'dhcp',
                                              'lan_ipv4_ipaddr': '192.168.0.1'}}
         post.return_value = self.get_response('', 200, json.dumps(dstatus).encode('utf-8'))
-        self.assertEqual(dstatus['data'], self.router.get_internet_status())
+        self.assertEqual(str(dstatus['data']), str(self.router.get_internet_status()))
         post.called_once_with('http://tplinkwifi.net/cgi-bin/luci/;stok=mocked_token/admin/status?form=internet',
                               {'operation': 'post'})
 
@@ -306,11 +335,11 @@ class Archer1200Case(unittest.TestCase):
     @patch('archer1200.requests.Session.post')
     def test_get_led_status(self, post):
         dstatus = {'success': 'true',
-                   'data': {'enable': 'on', 'time_set': 'yes', 'ledpm_support': 'yes'}
+                   'data': {'enable': 'on', 'ledpm_support': 'yes', 'time_set': 'yes'}
                    }
         bstatus = json.dumps(dstatus).encode('utf-8')
         post.return_value = self.get_response("", 200, bstatus)
-        self.assertEqual(dstatus['data'], self.router.get_led_status())
+        self.assertEqual(str(dstatus['data']), str(self.router.get_led_status()))
 
 
 def main(my_router):
@@ -349,12 +378,17 @@ def secondary(my_router):
 if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     config = configparser.ConfigParser()
+    files = ''
     if os.path.exists('updateDuckDns.ini'):
         files = config.read(filenames='updateDuckDns.ini')
+    else:
+        files = config.read(filenames='../updateDuckDns.ini')
+        print({section: dict(config[section]) for section in config.sections()})
     if files == '':
         logger.error(f'Cannot read file updateDuckDns.ini ')
-    ARCHER_ENCRYPTED = config['my_duckdns'].get('archer_encrypted', '<hashes>')
-    ARCHER_LOGIN = config['my_duckdns'].get('archer_login', '<archer_login>')
+        print(f'Cannot read file updateDuckDns.ini ')
+        exit()
+    print(config)
     # argParser
     parser = argparse.ArgumentParser(
         description='Functionnal tests or unit tests')
@@ -388,8 +422,10 @@ if __name__ == "__main__":
 
     if args.functionnal:
         logger.info("*************************** Functionnal *********************************")
+        ARCHER_ENCRYPTED = config['my_duckdns'].get('archer_encrypted', '<hashes>')
+        ARCHER_LOGIN = config['my_duckdns'].get('archer_login', '<archer_login>')
         my_router = Archer1200(encrypted=ARCHER_ENCRYPTED, username=ARCHER_LOGIN)
-        main(my_router)
+        # !main(my_router)
         secondary(my_router)
         my_router.logout()
         logger.info("*************************************************************************")

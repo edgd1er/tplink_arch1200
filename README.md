@@ -58,10 +58,10 @@ suggested for devs:
 * update updateDuckDns.ini with modem's credentials
 * run tests: 
   * fonctionnal tests:
-    * ./archer1200_test.py -f
-    * ./updateDuckDns_test.py
+    * ./test_archer1200.py -f
+    * ./test_updateDuckDns_test.py
   * unittests: 
-    * ./archer1200_test.py -u
+    * ./test_archer1200_test.py -u
 
 * coverage
   * pré-requis: pip3 install coverage

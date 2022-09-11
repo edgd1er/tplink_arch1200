@@ -28,6 +28,9 @@ test: ## run coverage with UT
 		coverage html
 		coverage report
 
+func: ## run archer functionnal tests
+		./tests/test_archer1200.py -f
+
 report: ## get cover report
 		coverage json
 		coverage html

@@ -127,7 +127,7 @@ class Archer1200:
         logger.debug('START')
         try:
             response = self.session.get(Archer1200.url_js)
-            m = re.search(r'(?<=encrypt\.)([0-9]+)\.js', response.text)
+            m = re.search(r'(?<=encrypt\.)([\d]+)\.js', response.text)
             ret = m.group(1)
             logger.debug(f'timestamp: {ret}, response: {response.text}')
         except urllib3.exceptions.MaxRetryError as mre:
@@ -138,7 +138,8 @@ class Archer1200:
             logger.error(f'Connexion error occurred: {con_err}')
         finally:
             logger.info(f'END: timestamp: {ret}')
-            return ret
+
+        return ret
 
     def get_jsonfrompost(self, url, data):
         m = re.search(r'([a-zA-Z0-9]+\?[a-z=]+)', url)
@@ -169,15 +170,16 @@ class Archer1200:
             logger.debug(f'Other error occurred: {err} on {action}/{url}, {response}')  # Python 3.6
             logger.error(f'Other error occurred: {err} on {action}/{url}')  # Python 3.6
         finally:
+            pass
             # logger.info(f'{action}: json status: {response.json()["success"]}')
-            return ret
+        return ret
 
     # TP link specific
     def cloud_login(self, username, password):
         logger.debug(f'START: username: {username}/ password: {password}')
-        if username == None or password == None:
+        if username == None or password == None or username =='' or password =='':
             logger.error("END: Expecting a username and a password to perform cloud login.")
-            exit
+            exit()
         json_response = self.get_jsonfrompost(url=Archer1200.url_cgi + '/login?form=cloud_login',
                                               data={'operation': 'login',
                                                     'username': username,
@@ -234,6 +236,7 @@ class Archer1200:
           json object converted to dictionary
         """
         logger.debug('START')
+        to_return = {"error": "empty content"}
         if self.token == None:
             logger.error("Not logged in, exiting")
             return {"error": "not logged in"}
@@ -242,8 +245,8 @@ class Archer1200:
         if not self.str2bool(json_response['success']):
             logger.error(f'Error on url: {url}, response: {json_response}')
             json_response['data'] = ''
-            return json_response
             logger.debug(f'{action} on {url}: {json_response}')
+            return json_response
         try:
             if 'data' in json_response.keys():
                 to_return = json_response['data']
@@ -256,9 +259,9 @@ class Archer1200:
             to_return = json_response
         finally:
             logger.debug(f'END: {to_return}')
-            return to_return
+        return to_return
 
-    def get_generic_read_function(self, url, action={'operation': 'read'}):
+    def get_generic_read_function(self, url, action={'operation': 'read'}) ->dict:
         """
         template get from read operation
         :return:
@@ -277,8 +280,10 @@ class Archer1200:
         to_return = 'None found'
         to_return = self.get_generic_read_function(url=url, action=action)
         logger.debug(f'action: {action}, field: {field}, url: {url}, return: {to_return}')
-        to_return = self.get_value_from_keys(to_return, field, to_return)
-        return to_return
+        if field == None:
+            return to_return
+
+        return self.get_value_from_keys(to_return, field, to_return)
 
     def get_generic_write_function(self, url):
         """
@@ -339,11 +344,11 @@ class Archer1200:
         :return:
         """
         field = 'internet_status'
-        #to_return = self.get_field_from_status_all(field)
-        #if to_return == 'None found':
+        # to_return = self.get_field_from_status_all(field)
+        # if to_return == 'None found':
         tmp = self.get_cached_read_function(url='/admin/status?form=internet')
         logger.debug(f'{tmp}')
-        #tmp = self.get_cached_read_function(url='/admin/network?form=status_ipv4', field=field)
+        # tmp = self.get_cached_read_function(url='/admin/network?form=status_ipv4', field=field)
         return self.get_value_from_keys(tmp, field, tmp)
 
     def get_cpu_usage(self) -> float:
@@ -394,31 +399,31 @@ class Archer1200:
         """
         return self.get_cached_read_function(url='/admin/firmware?form=upgrade')
 
-    def get_cloud_support(self) -> bool:
+    def get_cloud_support(self) -> str:
         status = self.get_cached_read_function(url='/admin/cloud_account?form=check_support')
         field = 'cloud_support'
         return self.get_value_from_keys(fdict=status, field=field)
 
-    def get_cloud_status(self) -> bool:
+    def get_cloud_status(self) -> str:
         status = self.get_cached_read_function(url='/admin/cloud_account?form=check_login')
         field = 'islogined'
         return self.get_value_from_keys(fdict=status, field=field)
 
     def get_led_status(self) -> dict:
         status = self.get_cached_read_function(url='/admin/ledgeneral?form=setting')
-        return self.get_value_from_keys(fdict=status, field=None)
+        return self.get_value_from_keys(fdict=status, field="")
 
     def get_ipv4_status(self) -> dict:
         status = self.get_cached_read_function(url='/admin/network?form=status_ipv4')
-        return self.get_value_from_keys(fdict=status, field=None)
+        return self.get_value_from_keys(fdict=status, field="")
 
     def get_wan_ipv4_protos(self):
         status = self.get_cached_read_function(url='/admin/network?form=wan_ipv4_protos')
-        return self.get_value_from_keys(fdict=status, field=None)
+        return self.get_value_from_keys(fdict=status, field="")
 
     def get_wan_ipv4_dynamic(self) -> str:
         status = self.get_cached_read_function(url='/admin/network?form=wan_ipv4_dynamic')
-        return self.get_value_from_keys(fdict=status, field=None)
+        return self.get_value_from_keys(fdict=status, field="")
 
     def get_traffic_lists(self):
         json_response = self.get_cached_read_function(url='/admin/traffic?form=lists')
@@ -450,7 +455,7 @@ class Archer1200:
             logger.error(f'{json_response["error"]}')
 
     # Higher level api
-    def get_value_from_keys(self, fdict: dict, field: str, default=None) -> str:
+    def get_value_from_keys(self, fdict: dict = None, field: str = "", default=None) -> str:
         """
 
         :param fdict:
@@ -517,7 +522,7 @@ class Archer1200:
         return is_default value
         :return: true/false
         """
-        return self.get_value_from_keys(fdict=self.get_firmware(), field='is_default')
+        return str(self.get_value_from_keys(fdict=self.get_firmware(), field='is_default')).lower() in ("yes", "true", "t", "1")
 
     def get_led_enable(self) -> str:
         """
