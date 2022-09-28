@@ -5,21 +5,37 @@ import os
 import sys
 import unittest
 from unittest.mock import patch, Mock
-import duckdns
+
+import updateDuckDns
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import archer1200
-import updateDuckDns
 
 patcher_archer = Mock(spec=archer1200.Archer1200)
 duckdns_fqdn = 'omvholblack.duckdns.org'
 
 
-@patch('archer1200.Archer1200')
-@patch('duckdns.duckdns')
-@patch('noip.noip')
+
 class UpdateDuckDnstCase(unittest.TestCase):
+
+    #####################
+    # check for duckdns #
+    #####################
+    @patch('updateDuckDns.logger')
+    @patch('duckdns.Duckdns')
+    def test_check_duckdns_ok(self, duck_mock, log_mock):
+        duck_mock.return_value.check_check_and_update.return_value ='OK'
+        res = updateDuckDns.check_duckdns(token='DUCK_TOKEN', domains='DOMAINS', force=False, ip='1.2.3.4', txt='txt', dry_run=False)
+        self.assertEqual('OK',res)
+
+
+    ###############
+    # check no ip #
+    ###############
+    @patch('noip.NoIp')
+    def test_check_noip(self,noip_mock):
+        res = updateDuckDns.check_noip(login='NOIP_LOGIN', passwd='NOIP_PASSWD', hosts='NOIP_HOSTS', ip='1234', )
 
     @patch('updateDuckDns.logger')
     def test1_check_ip_with_fqdn_return_false_when_internet_none(self, logger, mock_archer1200):
@@ -29,8 +45,7 @@ class UpdateDuckDnstCase(unittest.TestCase):
         mock_archer1200.get_wan_ip = Mock(return_value=wan_ip)
         mock_archer1200.get_internet_status = Mock(return_value=internet)
 
-        res = '' #check_ip_with_fqdn(mock_archer1200, duckdns_fqdn)
-
+        res = ''  # check_ip_with_fqdn(mock_archer1200, duckdns_fqdn)
 
         mock_archer1200.get_wan_ip.assert_called()
         mock_archer1200.get_internet_status.assert_called()
@@ -45,7 +60,7 @@ class UpdateDuckDnstCase(unittest.TestCase):
         expected = False
         mock_archer1200.get_wan_ip = Mock(return_value=wan_ip)
         mock_archer1200.get_internet_status = Mock(return_value=internet)
-        res = '' #check_ip_with_fqdn(mock_archer1200, duckdns_fqdn)
+        res = ''  # check_ip_with_fqdn(mock_archer1200, duckdns_fqdn)
         mock_archer1200.logout.assert_called()
         mock_archer1200.get_wan_ip.assert_called()
         mock_archer1200.get_internet_status.assert_called()
@@ -63,7 +78,7 @@ class UpdateDuckDnstCase(unittest.TestCase):
         mock_archer1200.get_wan_ip = Mock(return_value=wan_ip)
         mock_archer1200.get_internet_status = Mock(return_value=internet)
         mock_gethostbyname.return_value = duck_ip
-        res = '' #check_ip_with_fqdn(mock_archer1200, duckdns_fqdn)
+        res = ''  # check_ip_with_fqdn(mock_archer1200, duckdns_fqdn)
         mock_archer1200.get_wan_ip.assert_called()
         mock_archer1200.get_internet_status.assert_called()
         mock_archer1200.logout.assert_called()
@@ -83,7 +98,7 @@ class UpdateDuckDnstCase(unittest.TestCase):
         mock_archer1200.get_wan_ip = Mock(return_value=wan_ip)
         mock_archer1200.get_internet_status = Mock(return_value=internet)
         mock_gethostbyname.return_value = duck_ip
-        res = '' #check_ip_with_fqdn(mock_archer1200, duckdns_fqdn)
+        res = ''  # check_ip_with_fqdn(mock_archer1200, duckdns_fqdn)
         mock_archer1200.get_wan_ip.assert_called_once()
         mock_archer1200.get_internet_status.assert_called_once()
         mock_archer1200.logout.assert_called_once()
@@ -99,4 +114,4 @@ if __name__ == '__main__':
     print(suite)
     runner = unittest.TextTestRunner()
     runner.run(suite)
-    #unittest.main()
+    # unittest.main()

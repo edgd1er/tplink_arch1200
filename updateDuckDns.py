@@ -55,11 +55,58 @@ def send_mail(message='', run_by_cron=0):
         finally:
             mailserver.quit()
 
+
+def setup_arg_parser():
+    parser = argparse.ArgumentParser(
+        description='Update duckdns.org Dynamic DNS record')
+    parser.add_argument('-c', '--clear', action='store_true',
+                        help='if set to true, the update will ignore the txt parameter and clear the txt record')
+    parser.add_argument('-n', '--dryrun', action='store_true', help='do not update duckdns')
+    parser.add_argument('-f', '--force', action='store_true', help='force duckdns ip update')
+    parser.add_argument('-t', '--txt', type=str, default=None, help='the txt you require.')
+    parser.add_argument('-s', '--silent', action='store_true', help='silent mode for cron execution')
+    parser.add_argument('-d', '--domains', type=str, default=None,
+                        help='The DuckDNS domains to update as comma separated list. '
+                             'Defaults to DUCKDNS_DOMAINS environment variable.')
+    parser.add_argument(
+        '-a', '--auth', type=str, default=None,
+        help='An UUID4 provided by DuckDNS for your user. '
+             'Defaults to DUCKDNS_TOKEN environment variable.')
+    parser.add_argument('-v', '--verbose', action='store_true', help='More output.')
+
+    return parser.parse_args()
+
+
+def check_duckdns(token: str = '', domains: str = '', force: bool = False, ip: str = '', dry_run: bool = False,
+                  txt: str = ''):
+    global log_dir
+    my_duck_dns = duckdns.Duckdns(token=token, domains=domains, force=force, ip=ip, txt=txt, dry_run=dry_run)
+    out = my_duck_dns.check_and_update()
+    if '' != out:
+        fname = datetime.now().strftime("%Y%m%d_%H%M_duck.log")
+        logger.debug(f'name: {fname}, out: {out}')
+        logger.info(out.strip().replace('\n', ' ') + f' written to {log_dir}/{fname}, forced: {force}')
+        with open(os.path.join(log_dir, fname), 'x+') as duckstats:
+            duckstats.write(out)
+        send_mail(out, RUN_BY_CRON)
+
+
+def check_noip(login: str = '', passwd: str = '', hosts: str = '', ip: str = '', force: bool = False):
+    global log_dir
+    my_noip = noip.NoIp(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip, force=force)
+    out = my_noip.check_and_update()
+    logger.debug(f'out: {out}')
+    logger.info(out.strip().replace('\n', ' '))
+
+
 def main():
+    """"
+    REad arguments, config
+    """
     clear = False
     txt = None
-    log_dir = f'{LDIR}/logs'
-    sql_dir = f'{LDIR}/sql'
+    global log_dir
+    global sql_dir
     global DUCK_TOKEN
     global DOMAINS
     global ARCHER_ENCRYPTED
@@ -79,27 +126,10 @@ def main():
 
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(sql_dir, exist_ok=True)
-    logger.info(f'log_dir: {log_dir}, sql_dir: {sql_dir}')
+
 
     # argParser
-    parser = argparse.ArgumentParser(
-        description='Update duckdns.org Dynamic DNS record')
-    parser.add_argument('-c', '--clear', action='store_true',
-                        help='if set to true, the update will ignore the txt parameter and clear the txt record')
-    parser.add_argument('-n', '--dryrun', action='store_true', help='do not update duckdns')
-    parser.add_argument('-f', '--force', action='store_true', help='force duckdns ip update')
-    parser.add_argument('-t', '--txt', type=str, default=None, help='the txt you require.')
-    parser.add_argument('-s', '--silent', action='store_true', help='silent mode for cron execution')
-    parser.add_argument('-d', '--domains', type=str, default=None,
-                        help='The DuckDNS domains to update as comma separated list. '
-                             'Defaults to DUCKDNS_DOMAINS environment variable.')
-    parser.add_argument(
-        '-a', '--auth', type=str, default=None,
-        help='An UUID4 provided by DuckDNS for your user. '
-             'Defaults to DUCKDNS_TOKEN environment variable.')
-    parser.add_argument('-v', '--verbose', action='store_true', help='More output.')
-
-    args = parser.parse_args()
+    args = setup_arg_parser()
 
     if args.auth is None:
         if DUCK_TOKEN == '':
@@ -123,10 +153,11 @@ def main():
     logging.getLogger('duckdns').setLevel(log_level)
     logging.getLogger('noip').setLevel(log_level)
     logger.info(f'script dir: {LDIR}')
+    logger.info(f'log_dir: {log_dir}, sql_dir: {sql_dir}')
 
     # logging.basicConfig(format='%(levelname)s:%(name)s:%(message)s', level=log_level)
-    logger.debug(f'Token value: {DUCK_TOKEN}, domains: {DOMAINS}, fqdn: {duckdns_fqdn}, {args}')
 
+    # Router status check
     my_router = archer1200.Archer1200(username=ARCHER_LOGIN, encrypted=ARCHER_ENCRYPTED, url=ARCHER_URL)
     if my_router.get_timestamp() == '':
         logger.error(f'Error archer1200.Archer1200: cannot connect to router.')
@@ -134,37 +165,36 @@ def main():
         exit(1)
 
     internet = my_router.get_internet_status()
-    if internet is None or str(internet).find('disconnected') > 0:
+    if internet is None or str(internet) in ['disconnected','not logged in']:
         logger.error(f'Error, no connection to internet ({str(internet)})')
         return False
 
-    # ip = my_duck_dns.get_external_ip2()
     ip = my_router.get_wan_ip()
     if ip == '':
         logger.error(f'Error archer1200.Archer1200: cannot get wan from router.')
         send_mail(f'Error archer1200.Archer1200: cannot get wan from router.', RUN_BY_CRON)
         exit(1)
 
-    # check for duckdns
-    my_duck_dns = duckdns.Duckdns(token=DUCK_TOKEN, domains=DOMAINS, force=force, ip=ip, txt=txt, dry_run=args.dryrun)
-    out = my_duck_dns.check_and_update()
-    if '' != out:
-        fname = datetime.now().strftime("%Y%m%d_%H%M_duck.log")
-        logger.debug(f'name: {fname}, out: {out}')
-        logger.info(out.strip().replace('\n', ' ') + f' written to {log_dir}/{fname}, forced: {args.force}')
-        with open(os.path.join(log_dir, fname), 'x+') as duckstats:
-            duckstats.write(out)
-        send_mail(out, RUN_BY_CRON)
+    #####################
+    # check for duckdns #
+    #####################
+    #logger.debug(f'Token value: {DUCK_TOKEN}, domains: {DOMAINS}, fqdn: {duckdns_fqdn}, {args}')
+    check_duckdns(token=DUCK_TOKEN, domains=DOMAINS, force=args.force, ip=ip, txt=txt, dry_run=args.dryrun)
 
-    # check no ip
-    my_noip = noip.NoIp(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip)
-    my_noip.check_and_update()
+    ###############
+    # check no ip #
+    ###############
+    #logger.debug(f'NOIP_PASSWD: {NOIP_PASSWD}, domains: {NOIP_HOSTS}, ip: {ip}, force: {args.force}')
+    check_noip(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip, force=args.force)
 
     # End
     my_router.logout()
 
 
 if __name__ == "__main__":
+    """
+    read config from updateDuckDns.ini and updateDuckDns_logging.ini
+    """
     RUN_BY_CRON = int(os.environ.get('RUN_BY_CRON', '0'))
     if not os.path.isfile(LDIR + os.path.sep + 'updateDuckDns_logging.ini'):
         print(
@@ -192,6 +222,8 @@ if __name__ == "__main__":
     NOIP_LOGIN = config['noip'].get('login')
     NOIP_PASSWD = config['noip'].get('passwd')
     NOIP_HOSTS = config['noip'].get('hosts')
+    log_dir = f'{LDIR}/logs'
+    sql_dir = f'{LDIR}/sql'
     main()
 
 # res2 = js2py.eval_js()

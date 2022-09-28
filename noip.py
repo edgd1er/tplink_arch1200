@@ -35,7 +35,7 @@ class NoIp:
         self.login = login if login else os.environ.get("NOIP_LOGIN")
         self.passwd = passwd if passwd else os.environ.get("NOIP_PASSWD")
         self.hosts = hosts if hosts else os.environ.get("NOIP_HOSTS")
-        logger.debug(f'Instance: login: {login},pass: {hash(passwd)}, hosts: {hosts}')
+        logger.debug(f'Instance: login: {login},pass: {hash(passwd)}, hosts: {hosts}, ip: {ip}, force: {force}')
         self.ip = ip
         if self.ip == None:
             self.ip = self.get_external_ip()
@@ -58,10 +58,12 @@ class NoIp:
         Uses http://myexternalip.com/raw: HTTP Request & Response Service
 
         """
-        #http://ip1.dynupdate.no-ip.com/
+        # http://ip1.dynupdate.no-ip.com/
         return requests.get("http://myexternalip.com/raw").text
 
     def check(self):
+        if self.force:
+            return True
         to_update = False
         for h in self.hosts.split(','):
             ip = socket.gethostbyname(h)
@@ -70,7 +72,7 @@ class NoIp:
                 to_update = True
             else:
                 logger.debug(f'no change needed for {h}: {ip}')
-        return True if self.force else to_update
+        return to_update
 
     def update(self, ip=None, dry_run=False):
         """Update noip dynamic DNS record.
@@ -101,9 +103,10 @@ class NoIp:
                 logger.info(f'NoIP update result: {(re.content).decode()}')
             r = (re.content).decode()
             logger.debug(f'updating with {params}: status: {re.status_code}, content: {re.content}')
-
         return r.strip()
 
     def check_and_update(self):
         if self.check():
-            self.update(ip=self.ip)
+            return self.update(ip=self.ip)
+        else:
+            return 'No update needed'

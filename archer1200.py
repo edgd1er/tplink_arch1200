@@ -192,7 +192,7 @@ class Archer1200:
         else:
             self.token = None
             self.vectors = None
-            logger.error(f'END: {json_response["errorcode"]}: {json_response["data"]["errorcode"]}')
+            logger.error(f'END: {json_response["errorcode"]}: {json_response["data"]}')
 
     def local_login(self, password):
         """
