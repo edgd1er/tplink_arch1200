@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import unittest
+from unittest import mock
 from unittest.mock import patch, call
 
 import requests
@@ -81,10 +82,11 @@ class NoIpCase(unittest.TestCase):
         self.assertNotEqual('4.5.6.7', currentip)
         get_mock.assert_called_once_with("http://myexternalip.com/raw")
 
+    @patch('noip.open')
     @patch('noip.socket.gethostbyname', autospec=True)
-    def test_check_false(self, socket_mock):
+    def test_check_false(self, socket_mock, open_mock):
         socket_mock.side_effect = ['1.2.3.4', '1.2.3.4']
-
+        open_mock = mock.mock_open(read_data='')
         ret = self.noip.check()
 
         print(f'post was called {socket_mock.call_count} = 2')
@@ -92,9 +94,11 @@ class NoIpCase(unittest.TestCase):
         socket_mock.assert_has_calls([call('noip.domain.com'), call('second.domain.com')], any_order=False)
         self.assertEqual(False, ret)
 
+    @patch('noip.open')
     @patch('noip.socket.gethostbyname', autospec=True)
-    def test_check_true(self, socket_mock):
+    def test_check_true(self, socket_mock, open_mock):
         socket_mock.side_effect = ['1.2.3.4', '5.6.7.8']
+        open_mock = mock.mock_open(read_data='')
         self.logger = logging.getLogger('Duckdns').setLevel(logging.DEBUG)
         ret = self.noip.check()
 

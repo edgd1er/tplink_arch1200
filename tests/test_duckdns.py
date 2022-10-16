@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import unittest
+from unittest import mock
 from unittest.mock import patch, call
 
 from requests import Response
@@ -18,6 +19,8 @@ from duckdns import Duckdns
 Test some functions of duckdns.Duckdns module
 """
 
+logging.basicConfig(level=logging.DEBUG,
+format="%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s")
 
 class DuckdnsCase(unittest.TestCase):
 
@@ -60,8 +63,10 @@ class DuckdnsCase(unittest.TestCase):
         self.assertEqual('4.5.6.7', currentip)
         get_mock.assert_called_once_with("http://myexternalip.com/raw")
 
+    @patch('duckdns.open')
     @patch('duckdns.socket.gethostbyname', autospec=True)
-    def test_check_false(self, socket_mock):
+    def test_check_false(self, socket_mock, open_mock):
+        open_mock = mock.mock_open(read_data='')
         socket_mock.side_effect = ['1.2.3.4', '1.2.3.4', '1.2.3.4']
 
         ret = self.duckdns.check()
@@ -72,10 +77,13 @@ class DuckdnsCase(unittest.TestCase):
         socket_mock.assert_has_calls([call('domain1.duckdns.org'), call('domain2.duckdns.org'),
                                       call('domain3.duckdns.org')], any_order=False)
 
+    @patch('duckdns.open')
     @patch('duckdns.socket.gethostbyname', autospec=True)
-    def test_check_true(self, socket_mock):
+    def test_check_true(self, socket_mock, open_mock):
+        open_mock = mock.mock_open(read_data='')
         socket_mock.side_effect = ['4.3.2.1', '4.3.2.1', '4.3.2.1']
-        self.logger = logging.getLogger('Duckdns').setLevel(logging.DEBUG)
+        self.logger = logging.getLogger('Duckdns')
+        self.logger.setLevel(logging.DEBUG)
         ret = self.duckdns.check()
 
         print(f'post was called {socket_mock.call_count} = 3')

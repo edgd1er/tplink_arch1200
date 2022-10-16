@@ -3,6 +3,7 @@
 import logging
 import os
 import socket
+
 import requests
 
 # Largely inspired by
@@ -66,9 +67,20 @@ class Duckdns:
 
     def check(self):
         to_update = False
+        try:
+            with open('/tmp/lastip', mode='r') as i:
+                ipfile = i.read()
+        except FileNotFoundError as fnf:
+            logger.debug(f'{fnf}')
+            logger.warning('/tmp/lastip not found.')
+            ipfile = self.ip
+            with open('/tmp/lastip',mode='w') as i:
+                i.write(self.ip)
         for h in self.domains.split(','):
             ip = socket.gethostbyname(h + ".duckdns.org")
-            if ip != self.ip:
+            if ipfile == self.ip and ip != self.ip:
+                logger.debug(f'Recently updated, no change needed for {h}: {ip} != {ipfile} == {self.ip}')
+            elif ip != self.ip:
                 logger.debug(f'{h} need to be updated: {self.ip} != ${ip}')
                 to_update = True
             else:
@@ -114,6 +126,8 @@ class Duckdns:
         else:
             r = requests.get(self.duckdns_url, params).text
             logger.debug(f'updating with {params}')
+            with open(file='/tmp/lastip', mode='w') as i:
+                i.write(f'{ip if ip else self.ip}')
 
         logger.debug(f'r: {r}')
         return r.strip()

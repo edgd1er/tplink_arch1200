@@ -24,7 +24,7 @@ import noip
 # Variables
 LDIR = os.path.dirname(os.path.realpath(__file__))
 logger = {}
-
+hostname=socket.gethostname().split(".")[0]
 
 # functions
 # coding: utf-8
@@ -36,12 +36,13 @@ def send_mail(message='', run_by_cron=0):
     :param run_by_cron:
     :return:
     """
+    global hostname
     if message == '':
         return
     if not run_by_cron:
         print("send_mail: " + message)
     else:
-        subject = f'[{socket.gethostname()}][Duck: update ip]'
+        subject = f'[{hostname}][Duck: update ip]'
         msg = f'From: {eml_from}\r\nTo: {eml_to}\r\nSubject: {subject}\r\n\r\n{message}'
         mailserver = smtplib.SMTP(smtp_server, smtp_port)
         mailserver.ehlo()
@@ -101,7 +102,7 @@ def check_noip(login: str = '', passwd: str = '', hosts: str = '', ip: str = '',
 
 def main():
     """"
-    REad arguments, config
+    Read arguments, config
     """
     clear = False
     txt = None
@@ -115,8 +116,9 @@ def main():
     global NOIP_LOGIN
     global NOIP_PASSWD
     global NOIP_HOST
+    global hostname
 
-    if socket.gethostname().find('holdom') >= 0:
+    if hostname.find('holdom') >= 0:
         log_dir = f'{REMOTE_DIR}/logs'
         sql_dir = f'{REMOTE_DIR}/sql'
 
