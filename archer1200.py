@@ -66,7 +66,7 @@ class Archer1200:
           - set cookie in requests session.
         :param encrypted:
         """
-        logger.debug(f'start')
+        logger.debug('start')
         self.url_base = url
         self.session = requests.session()
         self.username = username
@@ -169,9 +169,6 @@ class Archer1200:
         except Exception as err:
             logger.debug(f'Other error occurred: {err} on {action}/{url}, {response}')  # Python 3.6
             logger.error(f'Other error occurred: {err} on {action}/{url}')  # Python 3.6
-        finally:
-            pass
-            # logger.info(f'{action}: json status: {response.json()["success"]}')
         return ret
 
     # TP link specific
@@ -280,7 +277,7 @@ class Archer1200:
         to_return = 'None found'
         to_return = self.get_generic_read_function(url=url, action=action)
         logger.debug(f'action: {action}, field: {field}, url: {url}, return: {to_return}')
-        if field == None:
+        if field is None:
             return to_return
 
         return self.get_value_from_keys(to_return, field, to_return)
@@ -451,8 +448,8 @@ class Archer1200:
         try:
             logger.info(f"{json_response['success']}")
         except KeyError as ke:
-            logger.debug(f'json_response: {json_response}')
-            logger.error(f'{json_response["error"]}')
+            logger.debug(f'key error: {ke}, json_response: {json_response}')
+            logger.error(f'key error: {json_response["error"]}')
 
     # Higher level api
     def get_value_from_keys(self, fdict: dict = None, field: str = "", default=None) -> str:

@@ -12,6 +12,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+lastipfile='/tmp/lastip'
 
 
 class NoIp:
@@ -66,13 +67,13 @@ class NoIp:
             return True
         to_update = False
         try:
-            with open('/tmp/lastip', mode='r') as i:
+            with open(lastipfile, mode='r') as i:
                 ipfile = i.read()
         except FileNotFoundError as fnf:
             logger.debug(f'{fnf}')
             logger.warning('/tmp/lastip not found.')
             ipfile = self.ip
-            with open('/tmp/lastip',mode='w') as i:
+            with open(lastipfile,mode='w') as i:
                 i.write(self.ip)
 
         for h in self.hosts.split(','):

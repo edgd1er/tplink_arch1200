@@ -11,7 +11,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
-
+lastipfile='/tmp/lastip'
 
 class Duckdns:
     """
@@ -42,11 +42,11 @@ class Duckdns:
         self.force = force
         self.txt = txt
         self.dry_run = dry_run
-        self.ip = ip
-        if ip == None:
+        if ip is None or ip == '':
             ip = self.get_external_ip()
         if ip == '':
             ip = self.get_external_ip2()
+        self.ip = ip
         logger.debug(f'Instance: token: {token}, domains: {domains}, ip: {self.ip}, force: {self.force}')
 
     def get_external_ip(self):
@@ -68,13 +68,13 @@ class Duckdns:
     def check(self):
         to_update = False
         try:
-            with open('/tmp/lastip', mode='r') as i:
+            with open(lastipfile, mode='r') as i:
                 ipfile = i.read()
         except FileNotFoundError as fnf:
             logger.debug(f'{fnf}')
-            logger.warning('/tmp/lastip not found.')
+            logger.warning(f'f{lastipfile} not found.')
             ipfile = self.ip
-            with open('/tmp/lastip',mode='w') as i:
+            with open(lastipfile,mode='w') as i:
                 i.write(self.ip)
         for h in self.domains.split(','):
             ip = socket.gethostbyname(h + ".duckdns.org")
@@ -105,7 +105,7 @@ class Duckdns:
             status as well.
 
         """
-        r = 'NOCHANGE'
+        #r = 'NOCHANGE'
         params = {
             "domains": self.domains,
             "token": self.token,
@@ -126,7 +126,8 @@ class Duckdns:
         else:
             r = requests.get(self.duckdns_url, params).text
             logger.debug(f'updating with {params}')
-            with open(file='/tmp/lastip', mode='w') as i:
+            with open(file=lastipfile
+                , mode='w') as i:
                 i.write(f'{ip if ip else self.ip}')
 
         logger.debug(f'r: {r}')
