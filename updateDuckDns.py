@@ -16,6 +16,8 @@ import socket
 import ssl
 from datetime import datetime
 
+import dns.resolver
+
 # Homemade Modules
 import archer1200
 import duckdns
@@ -24,12 +26,13 @@ import noip
 # Variables
 LDIR = os.path.dirname(os.path.realpath(__file__))
 logger = {}
-hostname=socket.gethostname().split(".")[0]
+hostname = socket.gethostname().split(".")[0]
+
 
 # functions
 # coding: utf-8
 
-def send_mail(message='', run_by_cron=0):
+def send_mail(title='', message='', run_by_cron=0):
     """
     send mail if run by cron
     :param message:
@@ -42,7 +45,7 @@ def send_mail(message='', run_by_cron=0):
     if not run_by_cron:
         print("send_mail: " + message)
     else:
-        subject = f'[{hostname}][Duck: update ip]'
+        subject = f'[{hostname}][{title}]'
         msg = f'From: {eml_from}\r\nTo: {eml_to}\r\nSubject: {subject}\r\n\r\n{message}'
         mailserver = smtplib.SMTP(smtp_server, smtp_port)
         mailserver.ehlo()
@@ -69,6 +72,8 @@ def setup_arg_parser():
     parser.add_argument('-d', '--domains', type=str, default=None,
                         help='The DuckDNS domains to update as comma separated list. '
                              'Defaults to DUCKDNS_DOMAINS environment variable.')
+    parser.add_argument('-r', '--resolve', action='store_true',
+                        help=f'check resolution for listed servers: {servers}')
     parser.add_argument(
         '-a', '--auth', type=str, default=None,
         help='An UUID4 provided by DuckDNS for your user. '
@@ -89,7 +94,7 @@ def check_duckdns(token: str = '', domains: str = '', force: bool = False, ip: s
         logger.info(out.strip().replace('\n', ' ') + f' written to {log_dir}/{fname}, forced: {force}')
         with open(os.path.join(log_dir, fname), 'x+') as duckstats:
             duckstats.write(out)
-        send_mail(out, RUN_BY_CRON)
+        send_mail(title='DuckDNS: update ip', message=out, run_by_cron=RUN_BY_CRON)
 
 
 def check_noip(login: str = '', passwd: str = '', hosts: str = '', ip: str = '', force: bool = False):
@@ -98,6 +103,30 @@ def check_noip(login: str = '', passwd: str = '', hosts: str = '', ip: str = '',
     out = my_noip.check_and_update()
     logger.debug(f'out: {out}')
     logger.info(out.strip().replace('\n', ' '))
+
+
+def check_servers(servers, name: str = 'www.free.fr', force: bool = False):
+    global log_dir
+    message = ''
+    resolver = dns.resolver.Resolver(configure=False)
+    resolver.timeout = 2
+    resolver.lifetime = 5
+    # Set the DNS Server
+    for s in servers.split(','):
+        resolver.nameservers = [s]
+        try:
+            answer = resolver.resolve(name, 'A')
+            logger.debug(f'server: {s}, resolved: {answer.rrset}')
+            for rr in answer:
+                logger.info(f'server: {s}, {name} = {rr.to_text()}')
+        except Exception as e:
+            message += f'No resolution for {name} on {s}: {e}\n'
+            logger.error(f'{s}: {e}')
+    if len(message) > 1:
+        send_mail(title='DNS: checkServers', message=message, run_by_cron=RUN_BY_CRON)
+        fname = datetime.now().strftime("%Y%m%d_%H%M_resolve.log")
+        with open(os.path.join(log_dir, fname), 'x+', encoding='utf-8') as results:
+            results.write(message)
 
 
 def main():
@@ -116,7 +145,14 @@ def main():
     global NOIP_LOGIN
     global NOIP_PASSWD
     global NOIP_HOST
+    global REMOTE_DIR
     global hostname
+    global servers
+
+    if hostname.find('phoebe') >= 0:
+        REMOTE_DIR = '/tmp'
+        log_dir = f'{REMOTE_DIR}/logs'
+        sql_dir = f'{REMOTE_DIR}/sql'
 
     if hostname.find('holdom') >= 0:
         log_dir = f'{REMOTE_DIR}/logs'
@@ -128,7 +164,6 @@ def main():
 
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(sql_dir, exist_ok=True)
-
 
     # argParser
     args = setup_arg_parser()
@@ -158,39 +193,49 @@ def main():
     logger.info(f'log_dir: {log_dir}, sql_dir: {sql_dir}')
 
     # logging.basicConfig(format='%(levelname)s:%(name)s:%(message)s', level=log_level)
+    logger.debug(f'auth: {args.auth}, clear: {args.clear}, dryrun: {args.dryrun}, force: {args.force}, txt: {args.txt}, silent: {args.silent}, domains: {args.domains}, resolve: {args.resolve}, verbose: {args.verbose}')
+    if not args.resolve:
+        # Router status check
+        my_router = archer1200.Archer1200(username=ARCHER_LOGIN, encrypted=ARCHER_ENCRYPTED, url=ARCHER_URL)
+        if my_router.get_timestamp() == '':
+            logger.error(f'Error archer1200.Archer1200: cannot connect to router.')
+            send_mail(title='DucksDNS: init', message=f'Error archer1200.Archer1200: cannot connect to router.',
+                      run_by_cron=RUN_BY_CRON)
+            exit(1)
 
-    # Router status check
-    my_router = archer1200.Archer1200(username=ARCHER_LOGIN, encrypted=ARCHER_ENCRYPTED, url=ARCHER_URL)
-    if my_router.get_timestamp() == '':
-        logger.error(f'Error archer1200.Archer1200: cannot connect to router.')
-        send_mail(f'Error archer1200.Archer1200: cannot connect to router.', RUN_BY_CRON)
-        exit(1)
+        internet = my_router.get_internet_status()
+        if internet is None or str(internet) in ['disconnected', 'not logged in']:
+            logger.error(f'Error, no connection to internet ({str(internet)})')
+            return False
 
-    internet = my_router.get_internet_status()
-    if internet is None or str(internet) in ['disconnected','not logged in']:
-        logger.error(f'Error, no connection to internet ({str(internet)})')
-        return False
+        ip = my_router.get_wan_ip()
+        if ip == '':
+            logger.error(f'Error archer1200.Archer1200: cannot get wan from router.')
+            send_mail(title='DucksDNS: no WAN', message=f'Error archer1200.Archer1200: cannot get wan from router.',
+                      run_by_cron=RUN_BY_CRON)
+            exit(1)
 
-    ip = my_router.get_wan_ip()
-    if ip == '':
-        logger.error(f'Error archer1200.Archer1200: cannot get wan from router.')
-        send_mail(f'Error archer1200.Archer1200: cannot get wan from router.', RUN_BY_CRON)
-        exit(1)
+            #####################
+            # check for duckdns #
+            #####################
+            # logger.debug(f'Token value: {DUCK_TOKEN}, domains: {DOMAINS}, fqdn: {duckdns_fqdn}, {args}')
+            check_duckdns(token=DUCK_TOKEN, domains=DOMAINS, force=args.force, ip=ip, txt=txt, dry_run=args.dryrun)
 
-    #####################
-    # check for duckdns #
-    #####################
-    #logger.debug(f'Token value: {DUCK_TOKEN}, domains: {DOMAINS}, fqdn: {duckdns_fqdn}, {args}')
-    check_duckdns(token=DUCK_TOKEN, domains=DOMAINS, force=args.force, ip=ip, txt=txt, dry_run=args.dryrun)
+            ###############
+            # check no ip #
+            ###############
+            # logger.debug(f'NOIP_PASSWD: {NOIP_PASSWD}, domains: {NOIP_HOSTS}, ip: {ip}, force: {args.force}')
+            check_noip(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip, force=args.force)
 
-    ###############
-    # check no ip #
-    ###############
-    #logger.debug(f'NOIP_PASSWD: {NOIP_PASSWD}, domains: {NOIP_HOSTS}, ip: {ip}, force: {args.force}')
-    check_noip(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip, force=args.force)
+            # End
+            my_router.logout()
 
-    # End
-    my_router.logout()
+    else:
+        #################
+        # check servers #
+        #################
+        # logger.debug(f'NOIP_PASSWD: {NOIP_PASSWD}, domains: {NOIP_HOSTS}, ip: {ip}, force: {args.force}')
+        check_servers(servers, name='www.free.fr', force=args.force)
 
 
 if __name__ == "__main__":
@@ -226,6 +271,7 @@ if __name__ == "__main__":
     NOIP_HOSTS = config['noip'].get('hosts')
     log_dir = f'{LDIR}/logs'
     sql_dir = f'{LDIR}/sql'
+    servers = config['global'].get('servers', '')
     main()
 
 # res2 = js2py.eval_js()
