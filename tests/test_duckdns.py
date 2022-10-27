@@ -20,7 +20,8 @@ Test some functions of duckdns.Duckdns module
 """
 
 logging.basicConfig(level=logging.DEBUG,
-format="%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s")
+                    format="%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s")
+
 
 class DuckdnsCase(unittest.TestCase):
 
@@ -104,7 +105,7 @@ class DuckdnsCase(unittest.TestCase):
             "txt": self.duckdns.txt
         }
         # r = requests.get(self.duckdns_url, params).text.strip()
-        ret = 'DRYRUN, nothing performed'
+        ret = 'DRYRUN, no update performed'
         get_mock.return_value.text = ret
         self.duckdns.dry_run = True
 
@@ -130,4 +131,4 @@ class DuckdnsCase(unittest.TestCase):
         res = self.duckdns.update()
         self.assertEqual(ret, res)
         self.assertEqual(get_mock.call_count, 1)
-        get_mock.assert_called_once_with(self.duckdns.duckdns_url, params)
+        get_mock.assert_called_once_with(self.duckdns.duckdns_url, params, timeout=10)

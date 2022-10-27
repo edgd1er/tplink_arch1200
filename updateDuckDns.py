@@ -14,6 +14,7 @@ import os
 import smtplib
 import socket
 import ssl
+import sys
 from datetime import datetime
 
 import dns.resolver
@@ -25,21 +26,23 @@ import noip
 
 # Variables
 LDIR = os.path.dirname(os.path.realpath(__file__))
-logger = {}
 hostname = socket.gethostname().split(".")[0]
+logger = logging.getLogger(__name__)
 
 
 # functions
 # coding: utf-8
 
-def send_mail(title='', message='', run_by_cron=0):
+def send_mail(title: str = '', message='', hostname: str = 'Not given', run_by_cron: int = 0):
     """
     send mail if run by cron
+    :param title:
+    :param hostname:
+    :return:
     :param message:
     :param run_by_cron:
     :return:
     """
-    global hostname
     if message == '':
         return
     if not run_by_cron:
@@ -84,8 +87,7 @@ def setup_arg_parser():
 
 
 def check_duckdns(token: str = '', domains: str = '', force: bool = False, ip: str = '', dry_run: bool = False,
-                  txt: str = ''):
-    global log_dir
+                  txt: str = '', log_dir='/tmp', hostname='Not Given'):
     my_duck_dns = duckdns.Duckdns(token=token, domains=domains, force=force, ip=ip, txt=txt, dry_run=dry_run)
     out = my_duck_dns.check_and_update()
     if '' != out:
@@ -94,19 +96,22 @@ def check_duckdns(token: str = '', domains: str = '', force: bool = False, ip: s
         logger.info(out.strip().replace('\n', ' ') + f' written to {log_dir}/{fname}, forced: {force}')
         with open(os.path.join(log_dir, fname), 'x+') as duckstats:
             duckstats.write(out)
-        send_mail(title='DuckDNS: update ip', message=out, run_by_cron=RUN_BY_CRON)
+        send_mail(title='DuckDNS: update ip', message=out, run_by_cron=RUN_BY_CRON, hostname=hostname)
+        return out
+    return True
 
 
 def check_noip(login: str = '', passwd: str = '', hosts: str = '', ip: str = '', force: bool = False):
-    global log_dir
-    my_noip = noip.NoIp(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip, force=force)
+    my_noip = noip.NoIp(login=login, passwd=passwd, hosts=hosts, ip=ip, force=force)
     out = my_noip.check_and_update()
     logger.debug(f'out: {out}')
     logger.info(out.strip().replace('\n', ' '))
+    if out == 'No update needed':
+        return False
+    return True
 
 
-def check_servers(servers, name: str = 'www.free.fr', force: bool = False):
-    global log_dir
+def check_servers(servers, name: str = 'www.free.fr', force: bool = False, log_dir: str = '/tmp', hostname='Not Given'):
     message = ''
     resolver = dns.resolver.Resolver(configure=False)
     resolver.timeout = 2
@@ -123,10 +128,12 @@ def check_servers(servers, name: str = 'www.free.fr', force: bool = False):
             message += f'No resolution for {name} on {s}: {e}\n'
             logger.error(f'{s}: {e}')
     if len(message) > 1:
-        send_mail(title='DNS: checkServers', message=message, run_by_cron=RUN_BY_CRON)
+        send_mail(title='DNS: checkServers', message=message, run_by_cron=RUN_BY_CRON, hostname=hostname)
         fname = datetime.now().strftime("%Y%m%d_%H%M_resolve.log")
         with open(os.path.join(log_dir, fname), 'x+', encoding='utf-8') as results:
             results.write(message)
+        return False
+    return True
 
 
 def main():
@@ -193,15 +200,16 @@ def main():
     logger.info(f'log_dir: {log_dir}, sql_dir: {sql_dir}')
 
     # logging.basicConfig(format='%(levelname)s:%(name)s:%(message)s', level=log_level)
-    logger.debug(f'auth: {args.auth}, clear: {args.clear}, dryrun: {args.dryrun}, force: {args.force}, txt: {args.txt}, silent: {args.silent}, domains: {args.domains}, resolve: {args.resolve}, verbose: {args.verbose}')
+    logger.debug(
+        f'auth: {args.auth}, clear: {args.clear}, dryrun: {args.dryrun}, force: {args.force}, txt: {args.txt}, silent: {args.silent}, domains: {args.domains}, resolve: {args.resolve}, verbose: {args.verbose}')
     if not args.resolve:
         # Router status check
         my_router = archer1200.Archer1200(username=ARCHER_LOGIN, encrypted=ARCHER_ENCRYPTED, url=ARCHER_URL)
         if my_router.get_timestamp() == '':
-            logger.error(f'Error archer1200.Archer1200: cannot connect to router.')
-            send_mail(title='DucksDNS: init', message=f'Error archer1200.Archer1200: cannot connect to router.',
+            logger.error('Error archer1200.Archer1200: cannot connect to router.')
+            send_mail(title='DucksDNS: init', message='Error archer1200.Archer1200: cannot connect to router.',
                       run_by_cron=RUN_BY_CRON)
-            exit(1)
+            sys.exit(1)
 
         internet = my_router.get_internet_status()
         if internet is None or str(internet) in ['disconnected', 'not logged in']:
@@ -210,22 +218,23 @@ def main():
 
         ip = my_router.get_wan_ip()
         if ip == '':
-            logger.error(f'Error archer1200.Archer1200: cannot get wan from router.')
-            send_mail(title='DucksDNS: no WAN', message=f'Error archer1200.Archer1200: cannot get wan from router.',
+            logger.error('Error archer1200.Archer1200: cannot get wan from router.')
+            send_mail(title='DucksDNS: no WAN', message='Error archer1200.Archer1200: cannot get wan from router.',
                       run_by_cron=RUN_BY_CRON)
-            exit(1)
+            sys.exit(1)
 
             #####################
             # check for duckdns #
             #####################
             # logger.debug(f'Token value: {DUCK_TOKEN}, domains: {DOMAINS}, fqdn: {duckdns_fqdn}, {args}')
-            check_duckdns(token=DUCK_TOKEN, domains=DOMAINS, force=args.force, ip=ip, txt=txt, dry_run=args.dryrun)
+            check_duckdns(token=DUCK_TOKEN, domains=DOMAINS, force=args.force, ip=ip, txt=txt, dry_run=args.dryrun,
+                          log_dir=log_dir, hostname=hostname)
 
             ###############
             # check no ip #
             ###############
             # logger.debug(f'NOIP_PASSWD: {NOIP_PASSWD}, domains: {NOIP_HOSTS}, ip: {ip}, force: {args.force}')
-            check_noip(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip, force=args.force)
+            check_noip(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip, force=args.force, log_dir=log_dir)
 
             # End
             my_router.logout()
@@ -235,7 +244,7 @@ def main():
         # check servers #
         #################
         # logger.debug(f'NOIP_PASSWD: {NOIP_PASSWD}, domains: {NOIP_HOSTS}, ip: {ip}, force: {args.force}')
-        check_servers(servers, name='www.free.fr', force=args.force)
+        check_servers(servers, name='www.free.fr', force=args.force, log_dir=log_dir)
 
 
 if __name__ == "__main__":

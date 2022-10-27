@@ -82,7 +82,7 @@ class Archer1200:
             self.cloud_login(self.username, self.encrypted_password)
         else:
             self.local_login(self.encrypted_password)
-        logger.debug(f'end')
+        logger.debug('end')
 
     def str2bool(self, v: str) -> bool:
         ret = str(v).lower() in ("yes", "true", "t", "1")
@@ -115,7 +115,7 @@ class Archer1200:
                     quit(1)
                 ret = json_response['data']['cloud_ever_login']
             else:
-                logger.error(f'check_factory_default: query failed, defaulting to false')
+                logger.error('check_factory_default: query failed, defaulting to false')
                 logger.debug(f'check_factory_default: query failed {json_response}')
             logger.debug(f'END: {ret}')
         except KeyError as ke:
@@ -174,7 +174,7 @@ class Archer1200:
     # TP link specific
     def cloud_login(self, username, password):
         logger.debug(f'START: username: {username}/ password: {password}')
-        if username == None or password == None or username =='' or password =='':
+        if username is None or password is None or username == '' or password == '':
             logger.error("END: Expecting a username and a password to perform cloud login.")
             exit()
         json_response = self.get_jsonfrompost(url=Archer1200.url_cgi + '/login?form=cloud_login',
@@ -234,7 +234,7 @@ class Archer1200:
         """
         logger.debug('START')
         to_return = {"error": "empty content"}
-        if self.token == None:
+        if self.token is None:
             logger.error("Not logged in, exiting")
             return {"error": "not logged in"}
         json_response = self.get_jsonfrompost(url=Archer1200.url_cgi + self.token + url, data=action)
@@ -258,7 +258,7 @@ class Archer1200:
             logger.debug(f'END: {to_return}')
         return to_return
 
-    def get_generic_read_function(self, url, action={'operation': 'read'}) ->dict:
+    def get_generic_read_function(self, url, action={'operation': 'read'}) -> dict:
         """
         template get from read operation
         :return:
@@ -289,7 +289,7 @@ class Archer1200:
           json object
         """
         logger.debug(f'START: url: {url}')
-        if self.token == None:
+        if self.token is None:
             logger.error("Not logged in, exiting")
             return {"error": "not logged in"}
 
@@ -519,7 +519,8 @@ class Archer1200:
         return is_default value
         :return: true/false
         """
-        return str(self.get_value_from_keys(fdict=self.get_firmware(), field='is_default')).lower() in ("yes", "true", "t", "1")
+        return str(self.get_value_from_keys(fdict=self.get_firmware(), field='is_default')).lower() in \
+               ("yes", "true", "t", "1")
 
     def get_led_enable(self) -> str:
         """

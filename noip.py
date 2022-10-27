@@ -12,7 +12,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
-lastipfile='/tmp/lastip'
+lastipfile = '/tmp/lastip'
 
 
 class NoIp:
@@ -38,7 +38,7 @@ class NoIp:
         self.hosts = hosts if hosts else os.environ.get("NOIP_HOSTS")
         logger.debug(f'Instance: login: {login},pass: {hash(passwd)}, hosts: {hosts}, ip: {ip}, force: {force}')
         self.ip = ip
-        if self.ip == None:
+        if self.ip is None:
             self.ip = self.get_external_ip()
         if self.ip == '':
             self.ip = self.get_external_ip2()
@@ -73,7 +73,7 @@ class NoIp:
             logger.debug(f'{fnf}')
             logger.warning('/tmp/lastip not found.')
             ipfile = self.ip
-            with open(lastipfile,mode='w') as i:
+            with open(lastipfile, mode='w') as i:
                 i.write(self.ip)
 
         for h in self.hosts.split(','):

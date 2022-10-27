@@ -11,7 +11,8 @@ import requests
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
-lastipfile='/tmp/lastip'
+lastipfile = '/tmp/lastip'
+
 
 class Duckdns:
     """
@@ -74,7 +75,7 @@ class Duckdns:
             logger.debug(f'{fnf}')
             logger.warning(f'f{lastipfile} not found.')
             ipfile = self.ip
-            with open(lastipfile,mode='w') as i:
+            with open(lastipfile, mode='w') as i:
                 i.write(self.ip)
         for h in self.domains.split(','):
             ip = socket.gethostbyname(h + ".duckdns.org")
@@ -105,7 +106,7 @@ class Duckdns:
             status as well.
 
         """
-        #r = 'NOCHANGE'
+        # r = 'NOCHANGE'
         params = {
             "domains": self.domains,
             "token": self.token,
@@ -122,12 +123,11 @@ class Duckdns:
 
         if dry_run or self.dry_run:
             logger.debug(f'DRYRUN: updating with {params}')
-            r = 'DRYRUN, nothing performed'
+            r = 'DRYRUN, no update performed'
         else:
-            r = requests.get(self.duckdns_url, params).text
+            r = requests.get(self.duckdns_url, params, timeout=10).text
             logger.debug(f'updating with {params}')
-            with open(file=lastipfile
-                , mode='w') as i:
+            with open(file=lastipfile, mode='w') as i:
                 i.write(f'{ip if ip else self.ip}')
 
         logger.debug(f'r: {r}')

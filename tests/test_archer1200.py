@@ -385,8 +385,8 @@ if __name__ == "__main__":
         files = config.read(filenames='../updateDuckDns.ini')
         print({section: dict(config[section]) for section in config.sections()})
     if files == '':
-        logger.error(f'Cannot read file updateDuckDns.ini ')
-        print(f'Cannot read file updateDuckDns.ini ')
+        logger.error('Cannot read file updateDuckDns.ini ')
+        print('Cannot read file updateDuckDns.ini ')
         exit()
     print(config)
     # argParser
