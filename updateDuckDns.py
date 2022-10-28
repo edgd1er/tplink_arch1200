@@ -46,6 +46,7 @@ def send_mail(title: str = '', message='', hostname: str = 'Not given', run_by_c
     if message == '':
         return
     if not run_by_cron:
+        logger.debug(f'send_mail: {message}')
         print("send_mail: " + message)
     else:
         subject = f'[{hostname}][{title}]'
@@ -87,18 +88,18 @@ def setup_arg_parser():
 
 
 def check_duckdns(token: str = '', domains: str = '', force: bool = False, ip: str = '', dry_run: bool = False,
-                  txt: str = '', log_dir='/tmp', hostname='Not Given'):
-    my_duck_dns = duckdns.Duckdns(token=token, domains=domains, force=force, ip=ip, txt=txt, dry_run=dry_run)
+                  txt: str = '', log_dir='/tmp', hostname='Not Given', run_by_cron: int = 0):
+    my_duck_dns = duckdns.DuckDns(token=token, domains=domains, force=force, ip=ip, txt=txt, dry_run=dry_run)
     out = my_duck_dns.check_and_update()
     if '' != out:
         fname = datetime.now().strftime("%Y%m%d_%H%M_duck.log")
         logger.debug(f'name: {fname}, out: {out}')
-        logger.info(out.strip().replace('\n', ' ') + f' written to {log_dir}/{fname}, forced: {force}')
+        logger.info(out.strip().replace('\n', ' ') + f' written to {log_dir}/{fname}, force: {force}')
         with open(os.path.join(log_dir, fname), 'x+') as duckstats:
             duckstats.write(out)
-        send_mail(title='DuckDNS: update ip', message=out, run_by_cron=RUN_BY_CRON, hostname=hostname)
+        send_mail(title='DuckDNS: update ip', message=out, run_by_cron=run_by_cron, hostname=hostname)
         return out
-    return True
+    return False
 
 
 def check_noip(login: str = '', passwd: str = '', hosts: str = '', ip: str = '', force: bool = False):
@@ -223,21 +224,21 @@ def main():
                       run_by_cron=RUN_BY_CRON)
             sys.exit(1)
 
-            #####################
-            # check for duckdns #
-            #####################
-            # logger.debug(f'Token value: {DUCK_TOKEN}, domains: {DOMAINS}, fqdn: {duckdns_fqdn}, {args}')
-            check_duckdns(token=DUCK_TOKEN, domains=DOMAINS, force=args.force, ip=ip, txt=txt, dry_run=args.dryrun,
-                          log_dir=log_dir, hostname=hostname)
+        #####################
+        # check for duckdns #
+        #####################
+        # logger.debug(f'Token value: {DUCK_TOKEN}, domains: {DOMAINS}, fqdn: {duckdns_fqdn}, {args}')
+        check_duckdns(token=DUCK_TOKEN, domains=DOMAINS, force=args.force, ip=ip, txt=txt, dry_run=args.dryrun,
+                      log_dir=log_dir, hostname=hostname)
 
-            ###############
-            # check no ip #
-            ###############
-            # logger.debug(f'NOIP_PASSWD: {NOIP_PASSWD}, domains: {NOIP_HOSTS}, ip: {ip}, force: {args.force}')
-            check_noip(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip, force=args.force, log_dir=log_dir)
+        ###############
+        # check no ip #
+        ###############
+        # logger.debug(f'NOIP_PASSWD: {NOIP_PASSWD}, domains: {NOIP_HOSTS}, ip: {ip}, force: {args.force}')
+        check_noip(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip, force=args.force, log_dir=log_dir)
 
-            # End
-            my_router.logout()
+        # End
+        my_router.logout()
 
     else:
         #################
@@ -255,7 +256,7 @@ if __name__ == "__main__":
     if not os.path.isfile(LDIR + os.path.sep + 'updateDuckDns_logging.ini'):
         print(
             f'updateDuckDns_logging.ini not found, please define one from sample: {LDIR + os.path.sep + "updateDuckDns_logging.ini"}')
-        quit()
+        sys.exit()
     logging.config.fileConfig(fname=LDIR + os.path.sep + 'updateDuckDns_logging.ini', disable_existing_loggers=False)
     logger = logging.getLogger(__name__)
     # configParser
