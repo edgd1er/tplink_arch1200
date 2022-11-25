@@ -88,7 +88,7 @@ def setup_arg_parser():
 
 
 def check_duckdns(token: str = '', domains: str = '', force: bool = False, ip: str = '', dry_run: bool = False,
-                  txt: str = '', log_dir='/tmp', hostname='Not Given', run_by_cron: int = 0):
+                  txt: str = '', log_dir='/tmp', hostname='Not Given', run_by_cron: int = 0) -> object:
     my_duck_dns = duckdns.DuckDns(token=token, domains=domains, force=force, ip=ip, txt=txt, dry_run=dry_run)
     out = my_duck_dns.check_and_update()
     if '' != out:
@@ -102,7 +102,7 @@ def check_duckdns(token: str = '', domains: str = '', force: bool = False, ip: s
     return False
 
 
-def check_noip(login: str = '', passwd: str = '', hosts: str = '', ip: str = '', force: bool = False):
+def check_noip(login: str = '', passwd: str = '', hosts: str = '', ip: str = '', force: bool = False) -> bool:
     my_noip = noip.NoIp(login=login, passwd=passwd, hosts=hosts, ip=ip, force=force)
     out = my_noip.check_and_update()
     logger.debug(f'out: {out}')
@@ -112,7 +112,16 @@ def check_noip(login: str = '', passwd: str = '', hosts: str = '', ip: str = '',
     return True
 
 
-def check_servers(servers, name: str = 'www.free.fr', force: bool = False, log_dir: str = '/tmp', hostname='Not Given'):
+def check_servers(servers: str = '', name: str = 'www.free.fr', force: bool = False, log_dir: str = '/tmp',
+                  hostname: str = 'Not Given'):
+    """
+    :param servers:
+    :param force:
+    :param log_dir:
+    :param hostname:
+    :return:
+    :type name: object
+    """
     message = ''
     resolver = dns.resolver.Resolver(configure=False)
     resolver.timeout = 2
@@ -136,6 +145,30 @@ def check_servers(servers, name: str = 'www.free.fr', force: bool = False, log_d
         return False
     return True
 
+def getArcher():
+    # Router status check
+    my_router = archer1200.Archer1200(username=ARCHER_LOGIN, encrypted=ARCHER_ENCRYPTED, url=ARCHER_URL)
+    if my_router.get_timestamp() == '':
+        logger.error('Error archer1200.Archer1200: cannot connect to router.')
+        send_mail(title='DucksDNS: init', message='Error archer1200.Archer1200: cannot connect to router.',
+                  run_by_cron=RUN_BY_CRON, hostname=hostname)
+        sys.exit(1)
+
+    internet = my_router.get_internet_status()
+    if internet is None or str(internet) in ['disconnected', 'not logged in']:
+        logger.error(f'Error, no connection to internet ({str(internet)})')
+        return False
+
+    ip = my_router.get_wan_ip()
+    if ip == '':
+        logger.error('Error archer1200.Archer1200: cannot get wan from router.')
+        send_mail(title='DucksDNS: no WAN', message='Error archer1200.Archer1200: cannot get wan from router.',
+                  run_by_cron=RUN_BY_CRON, hostname=hostname)
+        sys.exit(1)
+
+    # End
+    my_router.logout()
+    return ip
 
 def main():
     """"
@@ -204,25 +237,10 @@ def main():
     logger.debug(
         f'auth: {args.auth}, clear: {args.clear}, dryrun: {args.dryrun}, force: {args.force}, txt: {args.txt}, silent: {args.silent}, domains: {args.domains}, resolve: {args.resolve}, verbose: {args.verbose}')
     if not args.resolve:
-        # Router status check
-        my_router = archer1200.Archer1200(username=ARCHER_LOGIN, encrypted=ARCHER_ENCRYPTED, url=ARCHER_URL)
-        if my_router.get_timestamp() == '':
-            logger.error('Error archer1200.Archer1200: cannot connect to router.')
-            send_mail(title='DucksDNS: init', message='Error archer1200.Archer1200: cannot connect to router.',
-                      run_by_cron=RUN_BY_CRON)
-            sys.exit(1)
 
-        internet = my_router.get_internet_status()
-        if internet is None or str(internet) in ['disconnected', 'not logged in']:
-            logger.error(f'Error, no connection to internet ({str(internet)})')
-            return False
-
-        ip = my_router.get_wan_ip()
-        if ip == '':
-            logger.error('Error archer1200.Archer1200: cannot get wan from router.')
-            send_mail(title='DucksDNS: no WAN', message='Error archer1200.Archer1200: cannot get wan from router.',
-                      run_by_cron=RUN_BY_CRON)
-            sys.exit(1)
+        # getArcher
+        #ip = getArcher()
+        ip =socket.gethostbyname('holblack.freeboxos.fr')
 
         #####################
         # check for duckdns #
@@ -235,17 +253,15 @@ def main():
         # check no ip #
         ###############
         # logger.debug(f'NOIP_PASSWD: {NOIP_PASSWD}, domains: {NOIP_HOSTS}, ip: {ip}, force: {args.force}')
-        check_noip(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip, force=args.force, log_dir=log_dir)
+        check_noip(login=NOIP_LOGIN, passwd=NOIP_PASSWD, hosts=NOIP_HOSTS, ip=ip, force=args.force)
 
-        # End
-        my_router.logout()
 
     else:
         #################
         # check servers #
         #################
         # logger.debug(f'NOIP_PASSWD: {NOIP_PASSWD}, domains: {NOIP_HOSTS}, ip: {ip}, force: {args.force}')
-        check_servers(servers, name='www.free.fr', force=args.force, log_dir=log_dir)
+        check_servers(servers, name='www.free.fr', force=args.force, log_dir=log_dir, hostname=hostname)
 
 
 if __name__ == "__main__":

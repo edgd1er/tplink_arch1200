@@ -72,9 +72,9 @@ class DuckDns:
             with open(LASTIPFILE, mode='r') as i:
                 ipfile = i.read()
         except FileNotFoundError as fnf:
-            logger.debug(f'{fnf}')
+            logger.debug(f'File Not Found: {fnf}')
             logger.warning(f'f{LASTIPFILE} not found.')
-            ipfile = self.ip
+            ipfile = ''
             with open(LASTIPFILE, mode='w') as i:
                 i.write(self.ip)
         for h in self.domains.split(','):
@@ -127,7 +127,7 @@ class DuckDns:
         else:
             r = requests.get(self.duckdns_url, params, timeout=10).text
             logger.debug(f'updating with {params}')
-            with open(file=LASTIPFILE, mode='w') as i:
+            with open(file=LASTIPFILE, mode='w', encoding='utf-8') as i:
                 i.write(f'{ip if ip else self.ip}')
 
         logger.debug(f'r: {r}')
