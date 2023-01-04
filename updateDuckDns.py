@@ -28,6 +28,7 @@ import noip
 LDIR = os.path.dirname(os.path.realpath(__file__))
 hostname = socket.gethostname().split(".")[0]
 logger = logging.getLogger(__name__)
+timeout_fname = f'{LDIR}{os.path.sep}timeout'
 
 
 # functions
@@ -46,11 +47,12 @@ def send_mail(title: str = '', message='', hostname: str = 'Not given', run_by_c
     if message == '':
         return
     if not run_by_cron:
-        logger.debug(f'send_mail: {message}')
+        logger.debug(f'send_mail: message: {message}')
         print("send_mail: " + message)
     else:
         subject = f'[{hostname}][{title}]'
         msg = f'From: {eml_from}\r\nTo: {eml_to}\r\nSubject: {subject}\r\n\r\n{message}'
+        logger.debug(f'send_mail:msg: {msg}')
         mailserver = smtplib.SMTP(smtp_server, smtp_port)
         mailserver.ehlo()
         mailserver.starttls(context=ssl.create_default_context())
@@ -62,6 +64,68 @@ def send_mail(title: str = '', message='', hostname: str = 'Not given', run_by_c
             print(e)
         finally:
             mailserver.quit()
+
+
+def remove_host_from_timeout(timeout_filename: str, host: str):
+    """
+    Remove file from timeout if present, remove file if empty
+    :param timeout_filename:
+    :param host: text with line to remove
+    """
+    # delete file if older than one day
+    if os.path.isfile(timeout_filename):
+        timeout_timestamp = os.path.getctime(timeout_filename)
+        if int(datetime.now().strftime('%s')) - int(timeout_timestamp) > 86400:
+            os.unlink(timeout_filename)
+            logger.debug(f'Age: {datetime.fromtimestamp(timeout_timestamp)}, removing deprecated {timeout_filename}')
+        else:
+            with open(timeout_filename, "r") as reader:
+                lines = reader.readlines()
+
+            newlines = [line for line in lines if not line.__contains__(host)]
+
+            if len(newlines) > 0 and len(newlines) != len(lines):
+                with open(timeout_filename, 'w') as writer:
+                    logger.debug(f'timeout: removing {host} from timeout')
+                    writer.writelines(newlines)
+
+            if len(newlines) == 0 and os.path(timeout_filename):
+                os.unlink(timeout_filename)
+                logger.debug(f'No host to remove')
+    else:
+        logger.debug(f'No timeout file to remove ({host})')
+
+
+def add_host_to_timeout(timeout_filename: str, host: str, e: Exception):
+    """
+        Add ip timestamp + error to timeout file,
+    :param timeout_filename:
+    :param host: ip
+    :param e: dns error
+    :return: true if added to file, false otherwise
+    """
+    newlines = []
+    lines = []
+    if os.path.isfile(timeout_filename):
+        timeout_timestamp = os.path.getctime(timeout_filename)
+        if int(datetime.now().strftime('%s')) - int(timeout_timestamp) > 86400:
+            os.unlink(timeout_filename)
+            logger.debug(f'Age: {datetime.fromtimestamp(timeout_timestamp)}, removing deprecated {timeout_filename}')
+        else:
+            with open(timeout_filename, "r") as reader:
+                lines = reader.readlines()
+            newlines = [line for line in lines if not line.__contains__(host) and len(line) > 0]
+
+    newlines.append(f'\n{host:<15s}\t{datetime.now().strftime("%Y%m%d_%H%M%S")}\t{e}')
+
+    if len(newlines) != len(lines):
+        with open(timeout_filename, 'w') as writer:
+            writer.writelines(newlines)
+            logger.debug(f'timeout: writing {host}')
+            return True
+    else:
+        logger.debug(f'{host} already in timeout not adding.')
+        return False
 
 
 def setup_arg_parser():
@@ -128,15 +192,21 @@ def check_servers(servers: str = '', name: str = 'www.free.fr', force: bool = Fa
     resolver.lifetime = 5
     # Set the DNS Server
     for s in servers.split(','):
-        resolver.nameservers = [s]
+        current_server = s.strip()
+        if current_server == '':
+            logger.warning('Error in ini file, empty server')
+            continue
+        resolver.nameservers = [current_server]
         try:
             answer = resolver.resolve(name, 'A')
             logger.debug(f'server: {s}, resolved: {answer.rrset}')
             for rr in answer:
-                logger.info(f'server: {s}, {name} = {rr.to_text()}')
-        except Exception as e:
-            message += f'No resolution for {name} on {s}: {e}\n'
-            logger.error(f'{s}: {e}')
+                logger.info(f'server: {current_server}, {name} = {rr.to_text()}')
+            remove_host_from_timeout(timeout_fname, current_server)
+        except (dns.exception.Timeout, dns.resolver.NoNameservers) as e:
+            logger.error(f'{current_server}: {e}')
+            if add_host_to_timeout(timeout_fname, current_server, str(e).split(";")[0]):
+                message += f'{current_server:<15s}: {str(e).split(";")[0]}'
     if len(message) > 1:
         send_mail(title='DNS: checkServers', message=message, run_by_cron=RUN_BY_CRON, hostname=hostname)
         fname = datetime.now().strftime("%Y%m%d_%H%M_resolve.log")
@@ -144,6 +214,7 @@ def check_servers(servers: str = '', name: str = 'www.free.fr', force: bool = Fa
             results.write(message)
         return False
     return True
+
 
 def getArcher():
     # Router status check
@@ -169,6 +240,7 @@ def getArcher():
     # End
     my_router.logout()
     return ip
+
 
 def main():
     """"
@@ -239,8 +311,8 @@ def main():
     if not args.resolve:
 
         # getArcher
-        #ip = getArcher()
-        ip =socket.gethostbyname('holblack.freeboxos.fr')
+        # ip = getArcher()
+        ip = socket.gethostbyname('holblack.freeboxos.fr')
 
         #####################
         # check for duckdns #
