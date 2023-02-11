@@ -8,6 +8,7 @@ if ips are differents then duckdns ns ip is updated.
 # official modules
 import argparse
 import configparser
+import copy
 import logging
 import logging.config
 import os
@@ -89,7 +90,7 @@ def remove_host_from_timeout(timeout_filename: str, host: str):
                     logger.debug(f'timeout: removing {host} from timeout')
                     writer.writelines(newlines)
 
-            if len(newlines) == 0 and os.path(timeout_filename):
+            if len(newlines) == 0 and os.path.isfile(timeout_filename):
                 os.unlink(timeout_filename)
                 logger.debug(f'No host to remove')
     else:
@@ -104,8 +105,8 @@ def add_host_to_timeout(timeout_filename: str, host: str, e: Exception):
     :param e: dns error
     :return: true if added to file, false otherwise
     """
-    newlines = []
-    lines = []
+    changed=-1
+    newlines=[]
     if os.path.isfile(timeout_filename):
         timeout_timestamp = os.path.getctime(timeout_filename)
         if int(datetime.now().strftime('%s')) - int(timeout_timestamp) > 86400:
@@ -114,19 +115,21 @@ def add_host_to_timeout(timeout_filename: str, host: str, e: Exception):
         else:
             with open(timeout_filename, "r") as reader:
                 lines = reader.readlines()
-            newlines = [line for line in lines if not line.__contains__(host) and len(line) > 0]
+            newlines = copy.deepcopy(lines)
+            if any(host in e for e in newlines):
+                changed=0
+                logger.debug(f'{host} already present un {timeout_filename}')
+                #newlines = [line for line in lines if not line.__contains__(host) and len(line) > 0]
 
-    newlines.append(f'\n{host:<15s}\t{datetime.now().strftime("%Y%m%d_%H%M%S")}\t{e}')
+    if changed != 0:
+        newlines.append(f'\n{host:<15s}\t{datetime.now().strftime("%Y%m%d_%H%M%S")}\t{e}')
+        logger.debug(f'{host} added to {timeout_filename}, {newlines}')
 
-    if len(newlines) != len(lines):
-        with open(timeout_filename, 'w') as writer:
+        with open(timeout_filename, 'w+') as writer:
             writer.writelines(newlines)
-            logger.debug(f'timeout: writing {host}')
-            return True
-    else:
-        logger.debug(f'{host} already in timeout not adding.')
-        return False
+            logger.debug(f'timeout: writing {timeout_filename}')
 
+    return changed != 0
 
 def setup_arg_parser():
     parser = argparse.ArgumentParser(
