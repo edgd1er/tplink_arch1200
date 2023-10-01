@@ -35,14 +35,14 @@ timeout_fname = f'{LDIR}{os.path.sep}timeout'
 # functions
 # coding: utf-8
 
-def send_mail(title: str = '', message='', hostname: str = 'Not given', run_by_cron: int = 0):
+def send_mail(title: str = '', message='', hostname: str = 'Not given', run_by_cron: bool = False):
     """
     send mail if run by cron
     :param title:
     :param hostname:
     :return:
     :param message:
-    :param run_by_cron:
+    :param run_by_cron:boolean, true if run by cron
     :return:
     """
     if message == '':
@@ -155,7 +155,7 @@ def setup_arg_parser():
 
 
 def check_duckdns(token: str = '', domains: str = '', force: bool = False, ip: str = '', dry_run: bool = False,
-                  txt: str = '', log_dir='/tmp', hostname='Not Given', run_by_cron: int = 0) -> object:
+                  txt: str = '', log_dir='/tmp', hostname='Not Given', run_by_cron: bool = False) -> object:
     my_duck_dns = duckdns.DuckDns(token=token, domains=domains, force=force, ip=ip, txt=txt, dry_run=dry_run)
     out = my_duck_dns.check_and_update()
     if '' != out:
@@ -180,9 +180,10 @@ def check_noip(login: str = '', passwd: str = '', hosts: str = '', ip: str = '',
 
 
 def check_servers(servers: str = '', name: str = 'www.free.fr', force: bool = False, log_dir: str = '/tmp',
-                  hostname: str = 'Not Given'):
+                  hostname: str = 'Not Given',run_by_cron: bool = False):
     """
-    :param servers:
+    :param run_by_cron: true if run by cron
+    :param servers: list of servers separated by comma
     :param force:
     :param log_dir:
     :param hostname:
@@ -193,6 +194,11 @@ def check_servers(servers: str = '', name: str = 'www.free.fr', force: bool = Fa
     resolver = dns.resolver.Resolver(configure=False)
     resolver.timeout = 2
     resolver.lifetime = 5
+    # Disable logging if run by cron.
+    if run_by_cron:
+        #logging.disable(logging.NOTSET)
+        #logger.setLevel(logging.CRITICAL + 1)
+        logger.setLevel(logging.ERROR)
     # Set the DNS Server
     for s in servers.split(','):
         current_server = s.strip()
@@ -296,9 +302,11 @@ def main():
 
     force = args.force
     log_level = logging.INFO
+    RUN_BY_CRON = False
     if args.verbose:
         log_level = logging.DEBUG
-    if args.silent:
+    if args.silent or not sys.stdout.isatty():
+        RUN_BY_CRON = True
         log_level = logging.ERROR
 
     logger.setLevel(log_level)
@@ -336,14 +344,13 @@ def main():
         # check servers #
         #################
         # logger.debug(f'NOIP_PASSWD: {NOIP_PASSWD}, domains: {NOIP_HOSTS}, ip: {ip}, force: {args.force}')
-        check_servers(servers, name='www.free.fr', force=args.force, log_dir=log_dir, hostname=hostname)
+        check_servers(servers, name='www.free.fr', force=args.force, log_dir=log_dir, hostname=hostname, run_by_cron=RUN_BY_CRON)
 
 
 if __name__ == "__main__":
     """
     read config from updateDuckDns.ini and updateDuckDns_logging.ini
     """
-    RUN_BY_CRON = int(os.environ.get('RUN_BY_CRON', '0'))
     if not os.path.isfile(LDIR + os.path.sep + 'updateDuckDns_logging.ini'):
         print(
             f'updateDuckDns_logging.ini not found, please define one from sample: {LDIR + os.path.sep + "updateDuckDns_logging.ini"}')
@@ -374,5 +381,6 @@ if __name__ == "__main__":
     sql_dir = f'{LDIR}/sql'
     servers = config['global'].get('servers', '')
     main()
+    exit(0)
 
 # res2 = js2py.eval_js()
