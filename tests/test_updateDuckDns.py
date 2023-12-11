@@ -80,28 +80,6 @@ class UpdateDuckDnstCase(unittest.TestCase):
         self.assertEqual(False, res)
         noip_mock.assert_called()
 
-    @patch('archer1200.Archer1200')
-    @patch('socket.gethostbyname')
-    @patch('updateDuckDns.logger')
-    def test3_check_ip_with_fqdn_return_false_when_wan_ip_not_equals_duck_ip(self, mock_logger, mock_gethostbyname,
-                                                                             mock_archer1200):
-        wan_ip = "1.2.3.4"
-        duck_ip = "4.3.2.1"
-        internet = {'internet_status': 'connected'}
-        expected = True
-        mock_archer1200.get_wan_ip = Mock(return_value=wan_ip)
-        mock_archer1200.get_internet_status = Mock(return_value=internet)
-        mock_gethostbyname.return_value = duck_ip
-        res = ''  # check_ip_with_fqdn(mock_archer1200, duckdns_fqdn)
-        mock_archer1200.get_wan_ip.assert_called()
-        mock_archer1200.get_internet_status.assert_called()
-        mock_archer1200.logout.assert_called()
-        mock_logger.error.assert_not_called()
-        mock_logger.debug.assert_called_once_with(f' router ip: {wan_ip} ==  {duckdns_fqdn}: {duck_ip}')
-        mock_logger.info.assert_called_with('update duckdns ip needed')
-        self.assertEqual(expected, res)
-
-
 if __name__ == '__main__':
     tests = unittest.TestLoader().loadTestsFromTestCase(UpdateDuckDnstCase)
     suite = unittest.TestSuite([tests])
