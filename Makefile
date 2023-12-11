@@ -20,6 +20,7 @@ flake: ## lint python files
 
 test: ## run coverage with UT
 		@echo "run unittest + cover"
+		pip3 install coverage
 		coverage run -a tests/test_duckdns.py -u -d
 		coverage run -a tests/test_noip.py -u -d
 		coverage run -a tests/test_archer1200.py -u -d
