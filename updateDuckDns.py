@@ -49,12 +49,16 @@ def send_mail(title: str = '', message='', hostname: str = 'Not given', run_by_c
         return
     if not run_by_cron:
         logger.debug(f'send_mail: message: {message}')
-        print("send_mail: " + message)
+        print(f'send_mail: {message}')
     else:
         subject = f'[{hostname}][{title}]'
         msg = f'From: {eml_from}\r\nTo: {eml_to}\r\nSubject: {subject}\r\n\r\n{message}'
         logger.debug(f'send_mail:msg: {msg}')
-        mailserver = smtplib.SMTP(smtp_server, smtp_port)
+        try:
+            mailserver = smtplib.SMTP(smtp_server, smtp_port)
+        except socket.gaierror as e:
+            logger.warning(f' Temporary failure in name resolution: {smtp_server} forced to {smtp_server_ip}')
+            mailserver = smtplib.SMTP(smtp_server_ip, smtp_port)
         mailserver.ehlo()
         mailserver.starttls(context=ssl.create_default_context())
         mailserver.ehlo()
@@ -371,6 +375,7 @@ if __name__ == "__main__":
     eml_from = config['my_duckdns'].get('eml_from', 'none')
     eml_to = config['my_duckdns'].get('eml_to', 'none')
     smtp_server = config['my_duckdns'].get('smtp_server', '')
+    smtp_server_ip = config['my_duckdns'].get('smtp_server_ip', '212.27.48.4')
     smtp_port = int(config['my_duckdns'].get('smtp_port'))
     smtp_user = config['my_duckdns'].get('smtp_user')
     smtp_pass = config['my_duckdns'].get('smtp_pass')
