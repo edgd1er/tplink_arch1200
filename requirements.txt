@@ -4,4 +4,4 @@ coverage==6.2
 requests==2.31.0
 urllib3==1.26.18
 requests==2.31.0
-dnspython==2.2.1
+dnspython==2.6.1
