@@ -212,8 +212,11 @@ def check_servers(servers: str = '', name: str = 'www.free.fr', force: bool = Fa
         resolver.nameservers = [current_server]
         try:
             answer = resolver.resolve(name, 'A')
-            logger.debug(f'server: {s}, resolved: {answer.rrset}')
+            answer2 = resolver.resolve(name, 'AAAA')
+            logger.debug(f'server: {s}, resolved: {answer.rrset}, {answer2.rrset}')
             for rr in answer:
+                logger.info(f'server: {current_server}, {name} = {rr.to_text()}')
+            for rr in answer2:
                 logger.info(f'server: {current_server}, {name} = {rr.to_text()}')
             remove_host_from_timeout(timeout_fname, current_server)
         except (dns.exception.Timeout, dns.resolver.NoNameservers) as e:
@@ -277,12 +280,13 @@ def main():
 
     if hostname.find('phoebe') >= 0:
         REMOTE_DIR = '/tmp'
-        log_dir = f'{REMOTE_DIR}/logs'
-        sql_dir = f'{REMOTE_DIR}/sql'
 
-    if hostname.find('holdom') >= 0:
-        log_dir = f'{REMOTE_DIR}/logs'
-        sql_dir = f'{REMOTE_DIR}/sql'
+    if hostname.find('holdom2') >= 0:
+        REMOTE_DIR = REMOTE_DIR.replace('usb1','usb2') #"/media/usb1/docker/duckdns"
+
+
+    log_dir = f'{REMOTE_DIR}/logs'
+    sql_dir = f'{REMOTE_DIR}/sql'
 
     if not os.path.isdir(REMOTE_DIR):
         logger.error(f'remote_dir is not set or does not exists: {REMOTE_DIR}')
