@@ -53,18 +53,21 @@ def send_mail(title: str = '', message='', hostname: str = 'Not given', run_by_c
     else:
         subject = f'[{hostname}][{title}]'
         msg = f'From: {eml_from}\r\nTo: {eml_to}\r\nSubject: {subject}\r\n\r\n{message}'
-        logger.debug(f'send_mail:msg: {msg}')
+        logger.debug(f'send_mail:server: { smtp_server }:{ smtp_port }, user: {smtp_user}, pwd: {smtp_pass, }msg: {msg}')
         try:
-            mailserver = smtplib.SMTP(smtp_server, smtp_port)
+            # mailserver = smtplib.SMTP(smtp_server, smtp_port)
+            ctx = ssl.create_default_context() if not "mission.lan" in smtp_server else ssl._create_unverified_context()
+            mailserver = smtplib.SMTP_SSL(host=smtp_server, port=smtp_port, context=ctx)
         except socket.gaierror as e:
             logger.warning(f' Temporary failure in name resolution: {smtp_server} forced to {smtp_server_ip}')
-            mailserver = smtplib.SMTP(smtp_server_ip, smtp_port)
-        mailserver.ehlo()
-        mailserver.starttls(context=ssl.create_default_context())
-        mailserver.ehlo()
+            mailserver = smtplib.SMTP_SSL(host=smtp_server_ip, port=smtp_port,context=ssl._create_unverified_context())
+        # mailserver.ehlo()
+        # mailserver.starttls(context=ssl.create_default_context())
+        # mailserver.ehlo()
+        # mailserver.set_debuglevel(1 if debug else 0)
         mailserver.login(smtp_user, smtp_pass)
         try:
-            mailserver.sendmail(eml_from, eml_to, msg)
+            mailserver.sendmail(from_addr=eml_from, to_addrs=eml_to, msg=msg)
         except smtplib.SMTPException as e:
             print(e)
         finally:
@@ -109,8 +112,8 @@ def add_host_to_timeout(timeout_filename: str, host: str, e: Exception):
     :param e: dns error
     :return: true if added to file, false otherwise
     """
-    changed=-1
-    newlines=[]
+    changed = -1
+    newlines = []
     if os.path.isfile(timeout_filename):
         timeout_timestamp = os.path.getctime(timeout_filename)
         if int(datetime.now().strftime('%s')) - int(timeout_timestamp) > 86400:
@@ -121,9 +124,9 @@ def add_host_to_timeout(timeout_filename: str, host: str, e: Exception):
                 lines = reader.readlines()
             newlines = copy.deepcopy(lines)
             if any(host in e for e in newlines):
-                changed=0
+                changed = 0
                 logger.debug(f'{host} already present un {timeout_filename}')
-                #newlines = [line for line in lines if not line.__contains__(host) and len(line) > 0]
+                # newlines = [line for line in lines if not line.__contains__(host) and len(line) > 0]
 
     if changed != 0:
         newlines.append(f'\n{host:<15s}\t{datetime.now().strftime("%Y%m%d_%H%M%S")}\t{e}')
@@ -134,6 +137,7 @@ def add_host_to_timeout(timeout_filename: str, host: str, e: Exception):
             logger.debug(f'timeout: writing {timeout_filename}')
 
     return changed != 0
+
 
 def setup_arg_parser():
     parser = argparse.ArgumentParser(
@@ -184,7 +188,7 @@ def check_noip(login: str = '', passwd: str = '', hosts: str = '', ip: str = '',
 
 
 def check_servers(servers: str = '', name: str = 'www.free.fr', force: bool = False, log_dir: str = '/tmp',
-                  hostname: str = 'Not Given',run_by_cron: bool = False):
+                  hostname: str = 'Not Given', run_by_cron: bool = False):
     """
     :param run_by_cron: true if run by cron
     :param servers: list of servers separated by comma
@@ -200,8 +204,8 @@ def check_servers(servers: str = '', name: str = 'www.free.fr', force: bool = Fa
     resolver.lifetime = 5
     # Disable logging if run by cron.
     if run_by_cron:
-        #logging.disable(logging.NOTSET)
-        #logger.setLevel(logging.CRITICAL + 1)
+        # logging.disable(logging.NOTSET)
+        # logger.setLevel(logging.CRITICAL + 1)
         logger.setLevel(logging.ERROR)
     # Set the DNS Server
     for s in servers.split(','):
@@ -223,6 +227,8 @@ def check_servers(servers: str = '', name: str = 'www.free.fr', force: bool = Fa
             logger.error(f'{current_server}: {e}')
             if add_host_to_timeout(timeout_fname, current_server, str(e).split(";")[0]):
                 message += f'{current_server:<15s}: {str(e).split(";")[0]}'
+    logger.debug(f'end of check')
+    #send_mail(title='DNS: checkServers', message="my message", run_by_cron=RUN_BY_CRON, hostname=hostname)
     if len(message) > 1:
         send_mail(title='DNS: checkServers', message=message, run_by_cron=RUN_BY_CRON, hostname=hostname)
         fname = datetime.now().strftime("%Y%m%d_%H%M_resolve.log")
@@ -282,8 +288,7 @@ def main():
         REMOTE_DIR = '/tmp'
 
     if hostname.find('holdom2') >= 0:
-        REMOTE_DIR = REMOTE_DIR.replace('usb1','usb2') #"/media/usb1/docker/duckdns"
-
+        REMOTE_DIR = REMOTE_DIR.replace('usb1', 'usb2')  # "/media/usb1/docker/duckdns"
 
     log_dir = f'{REMOTE_DIR}/logs'
     sql_dir = f'{REMOTE_DIR}/sql'

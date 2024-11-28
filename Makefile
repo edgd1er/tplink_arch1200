@@ -38,7 +38,7 @@ report: ## get cover report
 		coverage report
 
 up:
-		docker compose -f docker-compose.yml up
+		docker compose -f compose.yml up
 
 genreq:
 		pip3 freeze > requirements.txt
