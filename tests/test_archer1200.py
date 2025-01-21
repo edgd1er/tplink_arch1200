@@ -49,22 +49,22 @@ class Archer1200Case(unittest.TestCase):
 
         post.side_effect = [postRespLoginType, postRespLogin]
         cls.router = Archer1200(username="ARCHER_LOGIN", encrypted="ARCHER_ENCRYPTED")
-        get.called_once_with('http://tplinkwifi.net/webpages/js/libs')
+        get.assert_called_once_with('http://tplinkwifi.net/webpages/js/libs')
         logger = logging.getLogger(__name__)
         logger.debug(f'post was called {post.call_count} >= 3')
         print(f'post was called {post.call_count} >= 3')
         p_call = post.call_args
         pargs, pkwargs = p_call
         # useless not control on calling args when using side_effect
-        post.called_once_with('http://tplinkwifi.net/cgi-bin/luci/;stok=/login?form=check_factory_default',
+        post.assert_called_once_with('http://tplinkwifi.net/cgi-bin/luci/;stok=/login?form=check_factory_default',
                               {'operation': 'read'})
-        post.called_once_with('http://tplinkwifi.net/cgi-bin/luci/;stok=/login?form=cloud_login',
+        post.assert_called_once_with('http://tplinkwifi.net/cgi-bin/luci/;stok=/login?form=cloud_login',
                               {'operation': 'login', 'username': None,
                                'password': '01cabd2121d369db9b04ef5e08d12799d8eddfb02a9b07fc1748d33f0a5ee8b485047d7ca4f5b9229c5021302f17380fb22086b092319d7c684a883c6219de4e6065c7f800932b9c93243573fc874a08b5f4be41fd6670f3cd64054740dcfffc848a73b2ef5d206eec37179a203d461d5053e4b80b67a23ce55634fa74e787c4'})
-        post.called_once_with('http://tplinkwifi.net/cgi-bin/luci/;stok=/login?form=login',
+        post.assert_called_once_with('http://tplinkwifi.net/cgi-bin/luci/;stok=/login?form=login',
                               {'operation': 'login', 'password': 'Password'})
         # won't trigger AssertionError as mock used with side_effect.
-        post.called_once_with('http://toto', {'operation': 'login', 'billy': 'bob'})
+        post.assert_called_once_with('http://toto', {'operation': 'login', 'billy': 'bob'})
         logger.debug(f'pargs: {pargs}, pkwargs: {pkwargs}')
         logger.debug(post.call_args_list)
         # erroneous count as mock used with side_effect.
@@ -274,7 +274,7 @@ class Archer1200Case(unittest.TestCase):
                                              'lan_ipv4_ipaddr': '192.168.0.1'}}
         post.return_value = self.get_response('', 200, json.dumps(dstatus).encode('utf-8'))
         self.assertEqual(str(dstatus['data']), str(self.router.get_internet_status()))
-        post.called_once_with('http://tplinkwifi.net/cgi-bin/luci/;stok=mocked_token/admin/status?form=internet',
+        post.assert_called_once_with('http://tplinkwifi.net/cgi-bin/luci/;stok=mocked_token/admin/status?form=internet',
                               {'operation': 'post'})
 
     @patch('archer1200.requests.Session.post')

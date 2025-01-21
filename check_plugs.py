@@ -3,19 +3,25 @@ import argparse
 import asyncio
 import configparser
 import http
+import json
 import logging.config
 import os
 import smtplib
 import socket
 import ssl
 import sys
+from email.message import EmailMessage
 from http.client import HTTPResponse
 from urllib.parse import urlparse
-
-import meross_iot.model.enums
 import requests
-from meross_iot.http_api import MerossHttpClient
-from meross_iot.manager import MerossManager
+
+try:
+    import meross_iot.model.enums
+    from meross_iot.http_api import MerossHttpClient
+    from meross_iot.manager import MerossManager
+except ImportError:
+    logging.error("Failed to import meross_iot.manager. pip install --break-system-packages meross_iot")
+    sys.exit(1)
 
 # Variables
 LDIR = os.path.dirname(os.path.realpath(__file__))
@@ -51,6 +57,11 @@ def config_to_list():
 
 
 def getConfigFromTarget(target: str):
+    """
+    extract host config from configlist
+    :param target:
+    :return:
+    """
     hc = next(filter(lambda x: (target == x.shortname), hosts_config), None)
     if hc is None:
         logger.debug(f'searching {target}=> not found ')
@@ -93,19 +104,25 @@ def send_mail(hosts: list = [], run_by_cron: int = 0):
         mailserver.ehlo()
         mailserver.login(smtp_user, smtp_pass)
         try:
-            mailserver.sendmail(eml_from, eml_to, msg)
+            #mailserver.sendmail(eml_from, eml_to, msg)
+            emlmsg = EmailMessage()
+            emlmsg.set_content(msg)
+            emlmsg['Subject'] = subject
+            emlmsg['From'] = eml_from
+            emlmsg['To'] = eml_to
+            mailserver.send_message(from_addr=eml_from, to_addrs=eml_to, msg=emlmsg)
         except smtplib.SMTPException as e:
             print(e)
         finally:
             mailserver.quit()
-
 
 async def switch_off_on(to_process: list, dryrun: bool = False):
     ch = ''
     if len(to_process) == 0:
         return
     # Setup the HTTP client API from user-password
-    http_api_client = await MerossHttpClient.async_from_user_password(email=email,
+    http_api_client = await MerossHttpClient.async_from_user_password(api_base_url='https://iotx-eu.meross.com',
+                                                                      email=email,
                                                                       password=password)
     logger.debug(f'email: {email}, pwd: {password}, dryrun: {dryrun}, to_process: f{to_process}')
     # Setup and start the device manager
@@ -115,7 +132,6 @@ async def switch_off_on(to_process: list, dryrun: bool = False):
     # Retrieve all the MSS310 devices that are registered on this account
     await manager.async_device_discovery()
     plugs = manager.find_devices(device_type="mss310")
-    # devices = manager.find_devices()
 
     logger.debug(f'target: {to_process}, dryrun: {dryrun}')
     for dev in plugs:
@@ -147,6 +163,35 @@ async def switch_off_on(to_process: list, dryrun: bool = False):
     # Close the manager and logout from http_api
     manager.close()
     await http_api_client.async_logout()
+
+async def get_meross_devices_status():
+    # Setup the HTTP client API from user-password
+    http_api_client = await MerossHttpClient.async_from_user_password(api_base_url='https://iotx-eu.meross.com',
+                                                                      email=email,
+                                                                      password=password)
+    logger.debug(f'email: {email}, pwd: {password}')
+    # Setup and start the device manager
+    manager = MerossManager(http_client=http_api_client)
+    await manager.async_init()
+
+    # Retrieve all the MSS310 devices that are registered on this account
+    await manager.async_device_discovery()
+    plugs = manager.find_devices(device_type="mss310")
+    for dev in plugs:
+        await dev.async_update()
+        logger.info(f'plug: {dev.name}, type: {dev.type}, status: {dev.is_on(channel=0)}')
+
+def prepare_get_status():
+    logger.debug(f'prepare get status')
+    if os.name == 'nt':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    #loop = asyncio.get_event_loop()
+    # 1) Create an event loop object ✅
+    loop = asyncio.new_event_loop()
+    # 2) Set the current event loop for the current OS thread ✅
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(get_meross_devices_status())
+    loop.close()
 
 
 def get_host_status(host_url: str) -> HTTPResponse:
@@ -194,7 +239,11 @@ def prepare_off_on(to_process: list, dryrun: bool):
         return
     if os.name == 'nt':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    loop = asyncio.get_event_loop()
+    #loop = asyncio.get_event_loop()
+    # 1) Create an event loop object ✅
+    loop = asyncio.new_event_loop()
+    # 2) Set the current event loop for the current OS thread ✅
+    asyncio.set_event_loop(loop)
     loop.run_until_complete(switch_off_on(to_process, dryrun))
     loop.close()
 
@@ -209,16 +258,18 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
     # configParser
     config = configparser.ConfigParser()
-    files = config.read(filenames=LDIR + os.path.sep + 'check_plugs.ini')
+    plugs = config.read(filenames=LDIR + os.path.sep + 'check_plugs.ini')
+    logger.debug(f'read plugs: {plugs}')
     # argParser
     parser = argparse.ArgumentParser(
         description='Switch off/on when host offline')
-    parser.add_argument('-t', '--target', type=str, default=None, help='host to target.')
+    parser.add_argument('-t', '--target', type=str, default=None, help='host to check.')
     parser.add_argument('-a', '--all', action='store_true',
                         help='check all defined hosts')
     parser.add_argument('-n', '--dryrun', action='store_true', help='do not switch off')
     parser.add_argument('-f', '--force', action='store_true', help='force swithc off')
-    parser.add_argument('-s', '--silent', action='store_true', help='silent mode for cron execution')
+    parser.add_argument('-q', '--silent', action='store_true', help='silent mode for cron execution')
+    parser.add_argument('-s', '--status', action='store_true', help='get devices status')
     parser.add_argument('-v', '--verbose', action='store_true', help='More output.')
     parser.add_argument('-k', '--kill', type=str, default=None, help='switch off/on an item.')
 
@@ -234,20 +285,22 @@ if __name__ == '__main__':
     logging.getLogger('check_plug').setLevel(log_level)
     logger.debug(f'script dir: {LDIR}')
 
-    # pprint(getmembers(config))
-
+    logger.debug(f'{config.sections()}')
     email = config['merioss'].get('meross_email', 'none')
     password = config['merioss'].get('meross_password', 'none')
-    eml_from = config['smtp'].get('eml_from', 'none')
-    eml_to = config['smtp'].get('eml_to', 'none')
-    smtp_server = config['smtp'].get('smtp_server', '')
-    smtp_port = int(config['smtp'].get('smtp_port'))
-    smtp_user = config['smtp'].get('smtp_user')
-    smtp_pass = config['smtp'].get('smtp_pass')
+    #check smtp and set vars
+    current_smtp="smtp_h3"
+    eml_from = config[current_smtp].get('eml_from', 'none')
+    eml_to = config[current_smtp].get('eml_to', 'none')
+    smtp_server = config[current_smtp].get('smtp_server', '')
+    smtp_port = int(config[current_smtp].get('smtp_port'))
+    smtp_user = config[current_smtp].get('smtp_user')
+    smtp_pass = config[current_smtp].get('smtp_pass')
 
     config_to_list()
 
-    if not args.all and not args.target and not args.kill:
+    if (not args) or (not args.all and not args.target and not args.kill and not args.status):
+        logger.debug(f'args: {args}')
         logger.error(f"no target (-t) or all (-a) nor kill (-k) option defined. exiting")
         quit()
     if args.all:
@@ -256,13 +309,13 @@ if __name__ == '__main__':
             if h.host.find(socket.gethostname()) < 0:
                 logger.debug(f"host: {h.shortname}, merioss: {h.name}, url: {h.url}")
                 r1 = get_host_status(h.url)
-                logger.debug(f'target: {h.shortname}, merioss name: {h.name}, url: {h.url}, response: {r1.status}')
-                logger.info(f'target: {h.shortname}, response: {r1.status}')
-                if r1 is None or (200, 404).count(r1.status) == 0 or args.force:
+                logger.debug(f'target: {h.shortname}, merioss name: {h.name}, url: {h.url}, response: {r1["status"]}')
+                logger.info(f'target: {h.shortname}, response: {r1["status"]}')
+                if (r1 is None or (200, 404).count(r1["status"]) == 0 or args.force):
                     to_process.append(h.name)
 
-    if args.target or args.kill:
-        target = args.target if args.target else args.kill
+    if args.target:
+        target = args.target
         logger.debug(f' {target} will be checked, dry-run: {args.dryrun}')
         hc = getConfigFromTarget(target)
         if hc == None:
@@ -272,18 +325,23 @@ if __name__ == '__main__':
         if hc.host.find(socket.gethostname()) > -1:
             logger.info(f' {target} ({hc.host}) is this host, exiting.')
             sys.exit(0)
-
-    if args.kill is None:
         r1 = get_host_status(hc.url)
-        if not r1 is None:
-            logger.debug(r1)
-            logger.debug(f'status: {r1["status"]}, OK: {(200, 404).count(r1["status"])}')
-        if (200, 404).count(r1['status']) == 0 or args.force:
-            logger.debug(
-                f'target: {hc.shortname}, merioss name: {hc.name}, url: {hc.url}, response: {r1["status"] if not r1 is None else "None"}')
+        logger.debug(f'target: {hc.shortname}, merioss name: {hc.name}, url: {hc.url}, response: {r1["status"]}')
+        logger.info(f'target: {hc.shortname}, response: {r1["status"]}')
+        if (r1 is None or (200, 404).count(r1["status"]) == 0 or args.force):
             to_process.append(hc.name)
-    else:
-        to_process.append(hc.name)
 
+    if args.kill:
+        hc = getConfigFromTarget(args.kill)
+        if hc is not None:
+            logger.info(f'Kill: add {hc.host} to the list to process.')
+            to_process.append(hc.name)
+        else:
+            logger.error(f'{args.kill} not found in config.')
+
+    #TODO
     prepare_off_on(to_process, args.dryrun)
     send_mail(to_process, RUN_BY_CRON)
+
+    if args.status:
+        prepare_get_status()

@@ -9,6 +9,7 @@ if ips are differents then duckdns ns ip is updated.
 import argparse
 import configparser
 import copy
+import email.utils
 import logging
 import logging.config
 import os
@@ -17,6 +18,7 @@ import socket
 import ssl
 import sys
 from datetime import datetime
+from email.message import EmailMessage
 
 import dns.resolver
 
@@ -48,6 +50,7 @@ def send_mail(title: str = '', message='', hostname: str = 'Not given', run_by_c
     if message == '':
         return
     if not run_by_cron:
+    #if run_by_cron:
         logger.debug(f'send_mail: message: {message}')
         print(f'send_mail: {message}')
     else:
@@ -67,7 +70,14 @@ def send_mail(title: str = '', message='', hostname: str = 'Not given', run_by_c
         # mailserver.set_debuglevel(1 if debug else 0)
         mailserver.login(smtp_user, smtp_pass)
         try:
-            mailserver.sendmail(from_addr=eml_from, to_addrs=eml_to, msg=msg)
+            #mailserver.sendmail(from_addr=eml_from, to_addrs=eml_to, msg=msg,)
+            emlmsg = EmailMessage()
+            emlmsg.set_content(msg)
+            emlmsg['Subject'] = subject
+            emlmsg['From'] = eml_from
+            emlmsg['To'] = eml_to
+            emlmsg['Date']= email.utils.formatdate() #datetime.now().strftime( "%d/%m/%Y %H:%M" )
+            mailserver.send_message(from_addr=eml_from, to_addrs=eml_to, msg=emlmsg,)
         except smtplib.SMTPException as e:
             print(e)
         finally:
@@ -223,18 +233,18 @@ def check_servers(servers: str = '', name: str = 'www.free.fr', force: bool = Fa
             for rr in answer2:
                 logger.info(f'server: {current_server}, {name} = {rr.to_text()}')
             remove_host_from_timeout(timeout_fname, current_server)
-        except (dns.exception.Timeout, dns.resolver.NoNameservers) as e:
+        except (dns.exception.Timeout, dns.resolver.NoNameservers, dns.resolver.NXDOMAIN) as e:
             logger.error(f'{current_server}: {e}')
             if add_host_to_timeout(timeout_fname, current_server, str(e).split(";")[0]):
                 message += f'{current_server:<15s}: {str(e).split(";")[0]}'
     logger.debug(f'end of check')
     #send_mail(title='DNS: checkServers', message="my message", run_by_cron=RUN_BY_CRON, hostname=hostname)
     if len(message) > 1:
-        send_mail(title='DNS: checkServers', message=message, run_by_cron=RUN_BY_CRON, hostname=hostname)
         fname = datetime.now().strftime("%Y%m%d_%H%M_resolve.log")
         with open(os.path.join(log_dir, fname), 'x+', encoding='utf-8') as results:
             results.write(message)
-        return False
+        send_mail(title='DNS: checkServers', message=message, run_by_cron=RUN_BY_CRON, hostname=hostname)
+    return False
     return True
 
 
