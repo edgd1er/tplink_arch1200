@@ -48,6 +48,7 @@ def send_mail(title: str = '', message='', hostname: str = 'Not given', run_by_c
     if message == '':
         return
     if not run_by_cron:
+    #if run_by_cron:
         logger.debug(f'send_mail: message: {message}')
         print(f'send_mail: {message}')
     else:
@@ -230,11 +231,11 @@ def check_servers(servers: str = '', name: str = 'www.free.fr', force: bool = Fa
     logger.debug(f'end of check')
     #send_mail(title='DNS: checkServers', message="my message", run_by_cron=RUN_BY_CRON, hostname=hostname)
     if len(message) > 1:
-        send_mail(title='DNS: checkServers', message=message, run_by_cron=RUN_BY_CRON, hostname=hostname)
         fname = datetime.now().strftime("%Y%m%d_%H%M_resolve.log")
         with open(os.path.join(log_dir, fname), 'x+', encoding='utf-8') as results:
             results.write(message)
-        return False
+        send_mail(title='DNS: checkServers', message=message, run_by_cron=RUN_BY_CRON, hostname=hostname)
+    return False
     return True
 
 
