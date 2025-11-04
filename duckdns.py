@@ -78,7 +78,11 @@ class DuckDns:
             with open(LASTIPFILE, mode='w') as i:
                 i.write(self.ip)
         for h in self.domains.split(','):
-            ip = socket.gethostbyname(h + ".duckdns.org")
+            try:
+                ip = socket.gethostbyname(h + ".duckdns.org")
+            except socket.gaierror:
+                ip=''
+                logger.error(f'No ip found for {h}.duckdns.org')
             if ipfile == self.ip and ip != self.ip:
                 logger.debug(f'Recently updated, no change needed for {h}: {ip} != {ipfile} == {self.ip}')
             elif ip != self.ip:
@@ -125,10 +129,13 @@ class DuckDns:
             logger.debug(f'DRYRUN: updating with {params}')
             r = 'DRYRUN, no update performed'
         else:
-            r = requests.get(self.duckdns_url, params, timeout=10).text
-            logger.debug(f'updating with {params}')
-            with open(file=LASTIPFILE, mode='w', encoding='utf-8') as i:
-                i.write(f'{ip if ip else self.ip}')
+            try:
+                r = requests.get(self.duckdns_url, params, timeout=10).text
+                logger.debug(f'updating with {params}')
+                with open(file=LASTIPFILE, mode='w', encoding='utf-8') as i:
+                    i.write(f'{ip if ip else self.ip}')
+            except requests.exceptions.RequestException as err:
+                logger.error(f'Request Exception: {err}')
 
         logger.debug(f'r: {r}')
         return r.strip()

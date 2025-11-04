@@ -13,6 +13,7 @@ import sys
 from email.message import EmailMessage
 from http.client import HTTPResponse
 from urllib.parse import urlparse
+import aiohttp
 import requests
 
 try:
@@ -121,10 +122,19 @@ async def switch_off_on(to_process: list, dryrun: bool = False):
     if len(to_process) == 0:
         return
     # Setup the HTTP client API from user-password
-    http_api_client = await MerossHttpClient.async_from_user_password(api_base_url='https://iotx-eu.meross.com',
+    try:
+        http_api_client = await MerossHttpClient.async_from_user_password(api_base_url='https://iotx-eu.meross.com',
                                                                       email=email,
                                                                       password=password)
-    logger.debug(f'email: {email}, pwd: {password}, dryrun: {dryrun}, to_process: f{to_process}')
+        logger.debug(f'email: {email}, pwd: {password}, dryrun: {dryrun}, to_process: f{to_process}')
+    except aiohttp.client_exceptions.ClientConnectorError as ce:
+        logger.error(f'ClientConnectorError: {ce}',exc_info=ce)
+        sys.exit(1)
+    except Exception as ex:
+        logger.error(f'Exception: {ex}', exc_info=ex)
+        sys.exit(1)
+    finally:
+        logger.info(f'end of switch_on_off')
     # Setup and start the device manager
     manager = MerossManager(http_client=http_api_client)
     await manager.async_init()
@@ -133,7 +143,11 @@ async def switch_off_on(to_process: list, dryrun: bool = False):
     await manager.async_device_discovery()
     plugs = manager.find_devices(device_type="mss310")
 
-    logger.debug(f'target: {to_process}, dryrun: {dryrun}')
+    pname=list(map(lambda x:x.name, plugs))
+    logger.debug(f'target: {to_process}, dryrun: {dryrun}, plugs: {pname}')
+    found=[ p for p in to_process if p in pname ]
+    if len(found)==0:
+        logger.error(f'to_process: {to_process} not found in plugs: {pname}')
     for dev in plugs:
         # The first time we play with a device, we must update its status
         await dev.async_update()

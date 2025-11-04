@@ -56,6 +56,7 @@ def send_mail(title: str = '', message='', hostname: str = 'Not given', run_by_c
     else:
         subject = f'[{hostname}][{title}]'
         msg = f'From: {eml_from}\r\nTo: {eml_to}\r\nSubject: {subject}\r\n\r\n{message}'
+        msg = f'{message}'
         logger.debug(f'send_mail:server: { smtp_server }:{ smtp_port }, user: {smtp_user}, pwd: {smtp_pass, }msg: {msg}')
         try:
             # mailserver = smtplib.SMTP(smtp_server, smtp_port)
@@ -233,7 +234,7 @@ def check_servers(servers: str = '', name: str = 'www.free.fr', force: bool = Fa
             for rr in answer2:
                 logger.info(f'server: {current_server}, {name} = {rr.to_text()}')
             remove_host_from_timeout(timeout_fname, current_server)
-        except (dns.exception.Timeout, dns.resolver.NoNameservers, dns.resolver.NXDOMAIN) as e:
+        except (dns.exception.Timeout, dns.resolver.NoNameservers, dns.resolver.NXDOMAIN, dns.resolver.NoAnswer) as e:
             logger.error(f'{current_server}: {e}')
             if add_host_to_timeout(timeout_fname, current_server, str(e).split(";")[0]):
                 message += f'{current_server:<15s}: {str(e).split(";")[0]}'
