@@ -40,8 +40,5 @@ report: ## get cover report
 up:
 		docker compose -f compose.yml up
 
-genreq:
-		pip3 freeze > requirements.txt
-
 updt:
 		pip3 list -o --format json | jq -r .[].name | xargs -I % pip3 install --upgrade %;

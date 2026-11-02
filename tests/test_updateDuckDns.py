@@ -8,11 +8,12 @@ from unittest.mock import patch, Mock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+
 import updateDuckDns
-from archer1200 import Archer1200
+from src.archer1200 import archer1200
 
 
-patcher_archer = Mock(spec=Archer1200)
+patcher_archer = Mock(spec=archer1200)
 duckdns_fqdn = 'omvholblack.duckdns.org'
 
 
