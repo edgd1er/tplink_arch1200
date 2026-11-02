@@ -34,7 +34,7 @@ check_plugs = "check_plugs:main"
 
 [project.optional-dependencies]
 test = [
-  "pytest == 8.2.0",
+  "pytest == 9.0.3",
 ]
 lint = [
   "ruff >= 0.15.2",
