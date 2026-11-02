@@ -23,9 +23,9 @@ from email.message import EmailMessage
 import dns.resolver
 
 # Homemade Modules
-import archer1200
-import duckdns
-import noip
+from src.archer1200 import archer1200
+from src.duckdns import duckdns
+from noip import NoIp
 
 # Variables
 LDIR = os.path.dirname(os.path.realpath(__file__))
@@ -189,7 +189,7 @@ def check_duckdns(token: str = '', domains: str = '', force: bool = False, ip: s
 
 
 def check_noip(login: str = '', passwd: str = '', hosts: str = '', ip: str = '', force: bool = False) -> bool:
-    my_noip = noip.NoIp(login=login, passwd=passwd, hosts=hosts, ip=ip, force=force)
+    my_noip = NoIp(login=login, passwd=passwd, hosts=hosts, ip=ip, force=force)
     out = my_noip.check_and_update()
     logger.debug(f'out: {out}')
     logger.info(out.strip().replace('\n', ' '))

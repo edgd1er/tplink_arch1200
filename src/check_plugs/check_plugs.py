@@ -13,8 +13,13 @@ import sys
 from email.message import EmailMessage
 from http.client import HTTPResponse
 from urllib.parse import urlparse
-import aiohttp
 import requests
+try:
+    import aiohttp
+except ImportError:
+    logging.error("Failed to import aiohttp. sudo apt install -y --no-install-recommends python3-aiohttp or pip install --break-system-packages aiohttp")
+    sys.exit(1)
+
 
 try:
     import meross_iot.model.enums
@@ -262,18 +267,9 @@ def prepare_off_on(to_process: list, dryrun: bool):
     loop.close()
 
 
-if __name__ == '__main__':
+def main():
+    global config, logger, hosts_config, to_process, email, password, eml_from, eml_to, smtp_server, smtp_port, smtp_user, smtp_pass, RUN_BY_CRON
     RUN_BY_CRON = int(os.environ.get('RUN_BY_CRON', '0'))
-    if not os.path.isfile(LDIR + os.path.sep + 'check_plugs_logging.ini'):
-        print(
-            f'check_plugs_logging.ini not found, please define one from sample: {LDIR + os.path.sep + "check_plugs_logging.ini"}')
-        sys.exit()
-    logging.config.fileConfig(fname=LDIR + os.path.sep + 'check_plugs_logging.ini', disable_existing_loggers=False)
-    logger = logging.getLogger(__name__)
-    # configParser
-    config = configparser.ConfigParser()
-    plugs = config.read(filenames=LDIR + os.path.sep + 'check_plugs.ini')
-    logger.debug(f'read plugs: {plugs}')
     # argParser
     parser = argparse.ArgumentParser(
         description='Switch off/on when host offline')
@@ -286,8 +282,21 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--status', action='store_true', help='get devices status')
     parser.add_argument('-v', '--verbose', action='store_true', help='More output.')
     parser.add_argument('-k', '--kill', type=str, default=None, help='switch off/on an item.')
+    parser.add_argument('-c', '--config', type=str, default=None, help='path to the config ini file.')
 
     args = parser.parse_args()
+    
+    if not os.path.isfile(LDIR + os.path.sep + 'check_plugs_logging.ini'):
+        print(
+            f'check_plugs_logging.ini not found, please define one from sample: {LDIR + os.path.sep + "check_plugs_logging.ini"}')
+        sys.exit()
+    logging.config.fileConfig(fname=LDIR + os.path.sep + 'check_plugs_logging.ini', disable_existing_loggers=False)
+    logger = logging.getLogger(__name__)
+    # configParser
+    config = configparser.ConfigParser()
+    config_file = args.config if args.config else LDIR + os.path.sep + 'check_plugs.ini'
+    plugs = config.read(filenames=config_file)
+    logger.debug(f'read plugs from {config_file}: {plugs}')
 
     log_level = logging.INFO
     if args.verbose:
@@ -359,3 +368,7 @@ if __name__ == '__main__':
 
     if args.status:
         prepare_get_status()
+
+
+if __name__ == '__main__':
+    main()

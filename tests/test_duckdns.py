@@ -13,7 +13,7 @@ from requests import Response
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Homemade Modules
-from duckdns import DuckDns
+from src.duckdns import duckdns
 
 """
 Test some functions of duckdns.Duckdns module
@@ -37,7 +37,7 @@ class DuckdnsCase(unittest.TestCase):
                             format="%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s")
         logger = logging.getLogger(__name__)
         logger.setLevel(logging.DEBUG)
-        cls.duckdns = DuckDns(token='myToken', domains='domain1,domain2,domain3', ip='1.2.3.4', force=False, clear=True,
+        cls.duckdns = duckdns(token='myToken', domains='domain1,domain2,domain3', ip='1.2.3.4', force=False, clear=True,
                               txt='myText', ip6='my_ip6', dry_run=True)
 
     @patch('duckdns.requests.get', autospec=True)

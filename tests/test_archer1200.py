@@ -17,7 +17,7 @@ from urllib3.exceptions import MaxRetryError
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Homemade Modules
-from archer1200 import Archer1200
+from src.archer1200 import archer1200
 
 """
 Test some functions of archer1200.Archer1200 module
@@ -48,7 +48,7 @@ class Archer1200Case(unittest.TestCase):
                                          b'{"success": "true", "data": {"password": "V_SECRET", "stok": "mocked_token"}}')
 
         post.side_effect = [postRespLoginType, postRespLogin]
-        cls.router = Archer1200(username="ARCHER_LOGIN", encrypted="ARCHER_ENCRYPTED")
+        cls.router = archer1200(username="ARCHER_LOGIN", encrypted="ARCHER_ENCRYPTED")
         get.assert_called_once_with('http://tplinkwifi.net/webpages/js/libs')
         logger = logging.getLogger(__name__)
         logger.debug(f'post was called {post.call_count} >= 3')
@@ -424,7 +424,7 @@ if __name__ == "__main__":
         logger.info("*************************** Functionnal *********************************")
         ARCHER_ENCRYPTED = config['my_duckdns'].get('archer_encrypted', '<hashes>')
         ARCHER_LOGIN = config['my_duckdns'].get('archer_login', '<archer_login>')
-        my_router = Archer1200(encrypted=ARCHER_ENCRYPTED, username=ARCHER_LOGIN)
+        my_router = Archer1200Case(encrypted=ARCHER_ENCRYPTED, username=ARCHER_LOGIN)
         # !main(my_router)
         secondary(my_router)
         my_router.logout()

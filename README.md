@@ -77,3 +77,11 @@ if is_default is
 * false 
   * cloud_ever_login == true => cloud login form (email + pwd)
   * cloud_ever_login == false => login form ( password only)
+
+### Build
+
+* update build tool: python3 -m pip install --upgrade build
+* build package: python3 -m build
+
+python3 -m pip install -e .
+python3 -m pip install  ./dist/archer1200-1.0.tar.gz 
