@@ -1,132 +1,117 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# official modules
-import logging
-import os
-import sys
-import unittest
-from unittest import mock
-from unittest.mock import patch, call
+"""Unit tests for duckdns.DuckDns module using pytest."""
+import pytest
+from unittest.mock import patch, call, mock_open, MagicMock
+import socket
 
 from requests import Response
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from src.duckdns import DuckDns
 
-# Homemade Modules
-from src.duckdns import duckdns
 
-"""
-Test some functions of duckdns.Duckdns module
-"""
+@pytest.fixture
+def duckdns_instance():
+    """Fixture providing a DuckDns instance with default parameters."""
+    return DuckDns(
+        token='myToken',
+        domains='domain1,domain2,domain3',
+        ip='1.2.3.4',
+        force=False,
+        clear=True,
+        txt='myText',
+        ip6='my_ip6',
+        dry_run=True
+    )
 
-class DuckdnsCase(unittest.TestCase):
 
-    @staticmethod
-    def get_response(code: str, status_code: int, content: bytes) -> Response:
-        r = Response()
-        r.code = code
-        r.status_code = status_code
-        r._content = content
-        return r
+# ===== Tests for external IP =====
 
-    @classmethod
-    @patch('archer1200.requests.Session.get')
-    @patch('archer1200.requests.Session.post')
-    def setUpClass(cls, spost_mock, sget_mock) -> None:
-        logging.basicConfig(level=logging.DEBUG,
-                            format="%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s")
-        logger = logging.getLogger(__name__)
-        logger.setLevel(logging.DEBUG)
-        cls.duckdns = duckdns(token='myToken', domains='domain1,domain2,domain3', ip='1.2.3.4', force=False, clear=True,
-                              txt='myText', ip6='my_ip6', dry_run=True)
+def test_get_external_ip(duckdns_instance):
+    """Test external IP retrieval from httpbin.org."""
+    with patch('requests.get') as mock_get:
+        mock_get.return_value.json.return_value = {'origin': '4.5.6.7'}
 
-    @patch('duckdns.requests.get', autospec=True)
-    def test_get_external_ip(self, req_mock):
-        # requests.get("http://httpbin.org/ip").json().get('origin')
-        req_mock.return_value.json.return_value = {'origin': '4.5.6.7'}
+        currentip = duckdns_instance.get_external_ip()
 
-        # specify the return value of the get() method
-        currentip = self.duckdns.get_external_ip()
+        assert currentip == '4.5.6.7'
+        mock_get.assert_called_once_with("http://httpbin.org/ip")
 
-        self.assertEqual('4.5.6.7', currentip)
-        req_mock.assert_called_once_with("http://httpbin.org/ip")
 
-    @patch('duckdns.requests.get', autospec=True)
-    def test_get_external_ip2(self, get_mock):
-        # requests.get("http://myexternalip.com/raw").text
-        get_mock.return_value.text = '4.5.6.7'
+def test_get_external_ip2(duckdns_instance):
+    """Test external IP retrieval from myexternalip.com."""
+    with patch('requests.get') as mock_get:
+        mock_get.return_value.text = '4.5.6.7'
 
-        # specify the return value of the get() method
-        currentip = self.duckdns.get_external_ip2()
+        currentip = duckdns_instance.get_external_ip2()
 
-        self.assertEqual('4.5.6.7', currentip)
-        get_mock.assert_called_once_with("http://myexternalip.com/raw")
+        assert currentip == '4.5.6.7'
+        mock_get.assert_called_once_with("http://myexternalip.com/raw")
 
-    @patch('duckdns.open')
-    @patch('duckdns.socket.gethostbyname', autospec=True)
-    def test_check_false(self, socket_mock, open_mock):
-        open_mock = mock.mock_open(read_data='')
+
+# ===== Tests for DNS check =====
+
+def test_check_false(duckdns_instance):
+    """Test DNS check returns False when IPs do not match."""
+    with patch('builtins.open', mock_open(read_data='')), \
+         patch('socket.gethostbyname', autospec=True) as socket_mock:
         socket_mock.side_effect = ['1.2.3.4', '1.2.3.4', '1.2.3.4']
 
-        ret = self.duckdns.check()
+        ret = duckdns_instance.check()
 
-        print(f'post was called {socket_mock.call_count} = 3')
-        print(f'post was called with {socket_mock.call_args_list} ')
-        self.assertEqual(False, ret)
-        socket_mock.assert_has_calls([call('domain1.duckdns.org'), call('domain2.duckdns.org'),
-                                      call('domain3.duckdns.org')], any_order=False)
+        assert ret is False
+        socket_mock.assert_has_calls([
+            call('domain1.duckdns.org'),
+            call('domain2.duckdns.org'),
+            call('domain3.duckdns.org')
+        ], any_order=False)
 
-    @patch('duckdns.open')
-    @patch('duckdns.socket.gethostbyname', autospec=True)
-    def test_check_true(self, socket_mock, open_mock):
-        open_mock = mock.mock_open(read_data='')
+
+def test_check_true(duckdns_instance):
+    """Test DNS check returns True when IPs match."""
+    with patch('builtins.open', mock_open(read_data='')), \
+         patch('socket.gethostbyname', autospec=True) as socket_mock:
         socket_mock.side_effect = ['4.3.2.1', '4.3.2.1', '4.3.2.1']
-        self.logger = logging.getLogger('Duckdns')
-        self.logger.setLevel(logging.DEBUG)
-        ret = self.duckdns.check()
 
-        print(f'post was called {socket_mock.call_count} = 3')
-        print(f'post was called with {socket_mock.call_args_list} ')
-        print(f'ip: {self.duckdns.ip} ')
-        self.assertEqual(True, ret)
-        socket_mock.assert_has_calls([call('domain1.duckdns.org'), call('domain2.duckdns.org'),
-                                      call('domain3.duckdns.org')], any_order=False)
+        ret = duckdns_instance.check()
 
-    @patch('duckdns.requests.get', autospec=True)
-    def test_update_no_params_dryrun_true(self, get_mock):
-        params = {
-            "domains": self.duckdns.domains,
-            "token": self.duckdns.token,
-            "ip": self.duckdns.ip,
-            "verbose": False,
-            "clear": self.duckdns.clear,
-            "txt": self.duckdns.txt
-        }
-        # r = requests.get(self.duckdns_url, params).text.strip()
-        ret = 'DRYRUN, no update performed'
-        get_mock.return_value.text = ret
-        self.duckdns.dry_run = True
+        assert ret is True
+        socket_mock.assert_has_calls([
+            call('domain1.duckdns.org'),
+            call('domain2.duckdns.org'),
+            call('domain3.duckdns.org')
+        ], any_order=False)
 
-        res = self.duckdns.update()
-        self.assertEqual(ret, res)
-        self.assertEqual(get_mock.call_count, 0)
 
-    @patch('duckdns.requests.get', autospec=True)
-    def test_update_no_params_dryrun_false(self, get_mock):
-        params = {
-            "domains": self.duckdns.domains,
-            "token": self.duckdns.token,
-            "ip": self.duckdns.ip,
-            "verbose": False,
-            "clear": self.duckdns.clear,
-            "txt": self.duckdns.txt
-        }
-        # r = requests.get(self.duckdns_url, params).text.strip()
-        self.duckdns.dry_run = False
+# ===== Tests for update =====
+
+def test_update_no_params_dryrun_true(duckdns_instance):
+    """Test update returns early when dry_run is True."""
+    with patch('requests.get') as mock_get:
+        duckdns_instance.dry_run = True
+
+        res = duckdns_instance.update()
+
+        assert res == 'DRYRUN, no update performed'
+        assert mock_get.call_count == 0
+
+
+def test_update_no_params_dryrun_false(duckdns_instance):
+    """Test update performs request when dry_run is False."""
+    with patch('requests.get') as mock_get:
+        duckdns_instance.dry_run = False
         ret = 'OK'
-        get_mock.return_value.text = ret
+        mock_get.return_value.text = ret
 
-        res = self.duckdns.update()
-        self.assertEqual(ret, res)
-        self.assertEqual(get_mock.call_count, 1)
-        get_mock.assert_called_once_with(self.duckdns.duckdns_url, params, timeout=10)
+        res = duckdns_instance.update()
+
+        expected_params = {
+            "domains": duckdns_instance.domains,
+            "token": duckdns_instance.token,
+            "ip": duckdns_instance.ip,
+            "verbose": False,
+            "clear": duckdns_instance.clear,
+            "txt": duckdns_instance.txt
+        }
+
+        assert res == ret
+        assert mock_get.call_count == 1
+        mock_get.assert_called_once_with(duckdns_instance.duckdns_url, expected_params, timeout=10)

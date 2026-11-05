@@ -25,7 +25,7 @@ import dns.resolver
 # Homemade Modules
 from src.archer1200 import archer1200
 from src.duckdns import duckdns
-from noip import NoIp
+from src.noip import NoIp
 
 # Variables
 LDIR = os.path.dirname(os.path.realpath(__file__))
@@ -175,6 +175,19 @@ def setup_arg_parser():
 
 def check_duckdns(token: str = '', domains: str = '', force: bool = False, ip: str = '', dry_run: bool = False,
                   txt: str = '', log_dir='/tmp', hostname='Not Given', run_by_cron: bool = False) -> object:
+    """
+    Update duckdns.org if list of domains aren't associated with ip
+    :param token: authentication token
+    :param domains:
+    :param force: update even if associated ip is the same
+    :param ip:
+    :param dry_run: do not update duckdns even if needed
+    :param txt:
+    :param log_dir:
+    :param hostname:
+    :param run_by_cron:
+    :return:
+    """
     my_duck_dns = duckdns.DuckDns(token=token, domains=domains, force=force, ip=ip, txt=txt, dry_run=dry_run)
     out = my_duck_dns.check_and_update()
     if '' != out:
