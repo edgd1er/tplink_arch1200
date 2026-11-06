@@ -1,9 +1,6 @@
 """Unit tests for duckdns.DuckDns module using pytest."""
 import pytest
 from unittest.mock import patch, call, mock_open, MagicMock
-import socket
-
-from requests import Response
 
 from duckdns import DuckDns
 

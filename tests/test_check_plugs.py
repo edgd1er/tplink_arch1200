@@ -42,21 +42,21 @@ def sample_hosts_config():
 def reset_global_vars():
     """Reset global variables before and after each test."""
     import check_plugs.check_plugs as check_plugs_module
-    
+
     # Save original values (handle case where they don't exist yet)
     orig_hosts_config = check_plugs_module.hosts_config
     orig_to_process = check_plugs_module.to_process
     orig_logger = check_plugs_module.logger
     orig_ldir = check_plugs_module.LDIR
-    
+
     # Reset for test
     check_plugs_module.hosts_config = []
     check_plugs_module.to_process = []
     check_plugs_module.logger = MagicMock()
     check_plugs_module.LDIR = '/mock/dir'
-    
+
     yield
-    
+
     # Restore original values
     check_plugs_module.hosts_config = orig_hosts_config
     check_plugs_module.to_process = orig_to_process
@@ -72,7 +72,7 @@ class TestHostsConfig:
     def test_hosts_config_init(self):
         """Test HostsConfig initialization."""
         hc = HostsConfig('test', '192.168.1.1', 'Test Plug', 'https://test.local')
-        
+
         assert hc.shortname == 'test'
         assert hc.name == 'Test Plug'
         assert hc.host == '192.168.1.1'
@@ -81,9 +81,9 @@ class TestHostsConfig:
     def test_hosts_config_url_property(self):
         """Test HostsConfig URL property getter and setter."""
         hc = HostsConfig('test', '192.168.1.1', 'Test Plug', 'https://test.local')
-        
+
         assert hc.get_url() == 'https://test.local'
-        
+
         hc.set_url('https://new.local')
         assert hc.get_url() == 'https://new.local'
         assert hc.url == 'https://new.local'
@@ -105,12 +105,12 @@ class TestConfigToList:
                 'plug3': '"Plug 3","Meross Plug 3","https://plug3.local"',
             }
         }
-        
+
         # Set the config global variable
         check_plugs_module.config = mock_config
-        
+
         config_to_list()
-        
+
         assert len(check_plugs_module.hosts_config) == 3
         assert isinstance(check_plugs_module.hosts_config[0], HostsConfig)
 
@@ -123,7 +123,7 @@ class TestGetConfigFromTarget:
     def test_get_config_from_target_found(self, sample_hosts_config):
         """Test finding a host by shortname."""
         result = getConfigFromTarget('plug1')
-        
+
         assert result is not None
         assert result.shortname == 'plug1'
         assert result.name == 'Meross Plug 1'
@@ -131,7 +131,7 @@ class TestGetConfigFromTarget:
     def test_get_config_from_target_not_found(self, sample_hosts_config):
         """Test that None is returned when target not found."""
         result = getConfigFromTarget('nonexistent')
-        
+
         assert result is None
 
 
@@ -143,7 +143,7 @@ class TestGetConfigFromMeriossName:
     def test_get_config_from_meross_name_found(self, sample_hosts_config):
         """Test finding a host by Meross name."""
         result = getConfigFromMeriossName('Meross Plug 1')
-        
+
         assert result is not None
         assert result.name == 'Meross Plug 1'
         assert result.shortname == 'plug1'
@@ -151,7 +151,7 @@ class TestGetConfigFromMeriossName:
     def test_get_config_from_meross_name_not_found(self, sample_hosts_config):
         """Test that None is returned when Meross name not found."""
         result = getConfigFromMeriossName('Nonexistent Plug')
-        
+
         assert result is None
 
 
@@ -169,9 +169,9 @@ class TestGetHostStatus:
             mock_response.reason = 'OK'
             mock_conn.getresponse.return_value = mock_response
             mock_conn_class.return_value = mock_conn
-            
+
             result = get_host_status('https://example.com')
-            
+
             assert result['status'] == 200
             assert result['reason'] == 'OK'
             mock_conn.request.assert_called_once()
@@ -186,9 +186,9 @@ class TestGetHostStatus:
             mock_response.reason = 'Not Found'
             mock_conn.getresponse.return_value = mock_response
             mock_conn_class.return_value = mock_conn
-            
+
             result = get_host_status('https://example.com')
-            
+
             assert result['status'] == 404
             assert result['reason'] == 'Not Found'
 
@@ -198,9 +198,9 @@ class TestGetHostStatus:
             mock_conn = MagicMock()
             mock_conn.getresponse.side_effect = TimeoutError("Connection timed out")
             mock_conn_class.return_value = mock_conn
-            
+
             result = get_host_status('https://example.com')
-            
+
             assert result['status'] == 500
             assert 'timed out' in str(result['reason']).lower()
 
@@ -210,9 +210,9 @@ class TestGetHostStatus:
             mock_conn = MagicMock()
             mock_conn.getresponse.side_effect = http.client.HTTPException("HTTP error")
             mock_conn_class.return_value = mock_conn
-            
+
             result = get_host_status('https://example.com')
-            
+
             assert result['status'] == 500
             assert result['reason'] is not None
 
@@ -222,9 +222,9 @@ class TestGetHostStatus:
             mock_conn = MagicMock()
             mock_conn.getresponse.side_effect = ConnectionError("Connection refused")
             mock_conn_class.return_value = mock_conn
-            
+
             result = get_host_status('https://example.com')
-            
+
             assert result['status'] == 500
             assert result['reason'] is not None
 
@@ -234,9 +234,9 @@ class TestGetHostStatus:
             mock_conn = MagicMock()
             mock_conn.getresponse.side_effect = OSError("Network error")
             mock_conn_class.return_value = mock_conn
-            
+
             result = get_host_status('https://example.com')
-            
+
             assert result['status'] == 500
             assert result['reason'] is not None
 
@@ -246,9 +246,9 @@ class TestGetHostStatus:
             mock_conn = MagicMock()
             mock_conn.getresponse.side_effect = Exception("Generic error")
             mock_conn_class.return_value = mock_conn
-            
+
             result = get_host_status('https://example.com')
-            
+
             assert result['status'] == 500
             assert result['reason'] is not None
 
@@ -261,9 +261,9 @@ class TestGetHostStatus:
             mock_response.reason = 'OK'
             mock_conn.getresponse.return_value = mock_response
             mock_conn_class.return_value = mock_conn
-            
+
             result = get_host_status('https://example.com:8443')
-            
+
             # Check that the connection was made to port 8443
             call_args = mock_conn_class.call_args
             assert call_args[1]['port'] == 8443
@@ -277,9 +277,9 @@ class TestGetHostStatus:
             mock_response.reason = 'OK'
             mock_conn.getresponse.return_value = mock_response
             mock_conn_class.return_value = mock_conn
-            
+
             result = get_host_status('https://example.com')
-            
+
             # Check that the connection was made to default port 443
             call_args = mock_conn_class.call_args
             assert call_args[1]['port'] == 443
@@ -305,9 +305,9 @@ class TestSendMail:
                 HostsConfig('plug1', '192.168.1.1', 'plug1', 'https://plug1.local'),
                 HostsConfig('plug2', '192.168.1.2', 'plug2', 'https://plug2.local'),
             ]
-            
+
             send_mail(['plug1', 'plug2'], run_by_cron=0)
-            
+
             # Should print the message instead of sending email
             assert mock_print.called
             call_args = mock_print.call_args[0][0]
@@ -318,11 +318,11 @@ class TestSendMail:
         import check_plugs.check_plugs as check_plugs_module
         with patch('smtplib.SMTP') as mock_smtp_class, \
              patch('ssl.create_default_context') as mock_ssl:
-            
+
             mock_smtp = MagicMock()
             mock_smtp_class.return_value = mock_smtp
             mock_ssl.return_value = MagicMock()
-            
+
             # Set up global variables
             check_plugs_module.to_process = ['plug1']
             check_plugs_module.hosts_config = [
@@ -334,10 +334,10 @@ class TestSendMail:
             check_plugs_module.smtp_port = 587
             check_plugs_module.smtp_user = 'user'
             check_plugs_module.smtp_pass = 'pass'
-            
+
             with patch('socket.gethostname', return_value='testhost'):
                 send_mail(['plug1'], run_by_cron=1)
-            
+
             # Verify SMTP calls
             mock_smtp.ehlo.assert_called()
             mock_smtp.starttls.assert_called()
@@ -352,12 +352,12 @@ class TestSendMail:
         with patch('smtplib.SMTP') as mock_smtp_class, \
              patch('ssl.create_default_context') as mock_ssl, \
              patch('builtins.print') as mock_print:
-            
+
             mock_smtp = MagicMock()
             mock_smtp.send_message.side_effect = smtplib.SMTPException("SMTP error")
             mock_smtp_class.return_value = mock_smtp
             mock_ssl.return_value = MagicMock()
-            
+
             # Set up global variables
             check_plugs_module.to_process = ['plug1']
             check_plugs_module.hosts_config = [
@@ -369,17 +369,17 @@ class TestSendMail:
             check_plugs_module.smtp_port = 587
             check_plugs_module.smtp_user = 'user'
             check_plugs_module.smtp_pass = 'pass'
-            
+
             with patch('socket.gethostname', return_value='testhost'):
                 send_mail(['plug1'], run_by_cron=1)
-            
+
             # Verify exception was caught and printed
             mock_print.assert_called_once()
             # The exception object is printed, not just the string
             call_args = mock_print.call_args[0][0]
             assert isinstance(call_args, smtplib.SMTPException)
             assert str(call_args) == "SMTP error"
-            
+
             # Should print the error
             assert mock_print.called
             mock_smtp.quit.assert_called_once()
@@ -397,7 +397,7 @@ class TestPrepareFunctions:
         """Test prepare_off_on with empty list returns early."""
         from check_plugs.check_plugs import prepare_off_on
         prepare_off_on([], dryrun=False)
-        
+
         # Should return immediately without calling switch_off_on
         mock_switch.assert_not_called()
         mock_new_loop.assert_not_called()
@@ -411,16 +411,16 @@ class TestPrepareFunctions:
         from check_plugs.check_plugs import prepare_off_on
         mock_loop = MagicMock()
         mock_new_loop.return_value = mock_loop
-        
+
         prepare_off_on(['device1', 'device2'], dryrun=True)
-        
+
         # Should create and set event loop
         mock_new_loop.assert_called_once()
         mock_set_loop.assert_called_once_with(mock_loop)
-        
+
         # Should call switch_off_on with the loop
         mock_loop.run_until_complete.assert_called_once()
-        
+
         # Should close the loop
         mock_loop.close.assert_called_once()
 
@@ -432,16 +432,16 @@ class TestPrepareFunctions:
         from check_plugs.check_plugs import prepare_get_status
         mock_loop = MagicMock()
         mock_new_loop.return_value = mock_loop
-        
+
         prepare_get_status()
-        
+
         # Should create and set event loop
         mock_new_loop.assert_called_once()
         mock_set_loop.assert_called_once_with(mock_loop)
-        
+
         # Should call get_meross_devices_status
         mock_loop.run_until_complete.assert_called_once()
-        
+
         # Should close the loop
         mock_loop.close.assert_called_once()
 
@@ -455,7 +455,7 @@ class TestMainLogic:
         """Test URL parsing with urlparse."""
         url = 'https://example.com:8443/path?query=value'
         parsed = urlparse(url)
-        
+
         assert parsed.scheme == 'https'
         assert parsed.hostname == 'example.com'
         assert parsed.port == 8443
@@ -466,7 +466,7 @@ class TestMainLogic:
         """Test that default port is handled correctly."""
         url = 'https://example.com'
         parsed = urlparse(url)
-        
+
         assert parsed.port is None
         # In get_host_status, default port is set to 443
         port = parsed.port or 443

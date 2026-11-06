@@ -5,7 +5,7 @@ import pytest
 import tempfile
 import shutil
 from datetime import datetime
-from unittest.mock import MagicMock, patch, call, mock_open as unittest_mock_open
+from unittest.mock import MagicMock, patch, mock_open as unittest_mock_open
 
 # Import module under test - add parent dir to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -26,23 +26,23 @@ class CustomMockOpen:
     def __init__(self, read_data=''):
         self.read_data = read_data
         self.written_data = []
-    
+
     def __enter__(self):
         return self
-    
+
     def __exit__(self, *args):
         pass
-    
+
     def read(self):
         return self.read_data
-    
+
     def readlines(self):
         return self.read_data.split('\n') if self.read_data else []
-    
+
     def write(self, data):
         self.written_data.append(data)
         return len(data)
-    
+
     def writelines(self, lines):
         self.written_data.extend(lines)
         return len(lines)
@@ -87,7 +87,7 @@ def test_check_duckdns_update():
 
         date_mock.now.return_value.strftime.return_value = 'NOW.log'
         duck_mock.return_value.check_and_update.return_value = 'updating with 1.2.3.4'
-        
+
         log_dir = '/tmp'
         res = updateDuckDns.check_duckdns(
             token='DUCK_TOKEN',
@@ -115,7 +115,7 @@ def test_check_duckdns_no_update():
          patch('builtins.open') as open_mock:
 
         duck_mock.return_value.check_and_update.return_value = ''
-        
+
         log_dir = '/tmp'
         res = updateDuckDns.check_duckdns(
             token='DUCK_TOKEN',
@@ -143,7 +143,7 @@ def test_check_noip_update_performed():
 
         noip_mock.return_value.check_and_update.return_value = 'update needed'
         socket_mock.return_value = "1.2.3.4"
-        
+
         res = updateDuckDns.check_noip(
             login='NOIP_LOGIN',
             passwd='NOIP_PASSWD',
@@ -162,7 +162,7 @@ def test_check_noip_no_update():
 
         noip_mock.return_value.check_and_update.return_value = 'No update needed'
         socket_mock.return_value = "1.2.3.4"
-        
+
         res = updateDuckDns.check_noip(
             login='NOIP_LOGIN',
             passwd='NOIP_PASSWD',
@@ -207,10 +207,10 @@ class TestSendMail:
         mock_formatdate.return_value = 'Test Date'
         mock_default_ctx.return_value = MagicMock()
         mock_unverified_ctx.return_value = MagicMock()
-        
+
         mock_smtp = MagicMock()
         mock_smtp_ssl.return_value = mock_smtp
-        
+
         # Set required globals
         updateDuckDns.eml_from = 'test@example.com'
         updateDuckDns.eml_to = 'recipient@example.com'
@@ -218,7 +218,7 @@ class TestSendMail:
         updateDuckDns.smtp_port = 587
         updateDuckDns.smtp_user = 'user'
         updateDuckDns.smtp_pass = 'pass'
-        
+
         with patch('socket.gethostname', return_value='testhost'):
             with patch('builtins.print'):
                 updateDuckDns.send_mail(
@@ -227,7 +227,7 @@ class TestSendMail:
                     hostname='testhost',
                     run_by_cron=True
                 )
-        
+
         # Verify SMTP calls
         mock_smtp_ssl.assert_called_once()
         mock_smtp.login.assert_called_once_with('user', 'pass')
@@ -243,11 +243,11 @@ class TestSendMail:
         import socket
         mock_default_ctx.return_value = MagicMock()
         mock_unverified_ctx.return_value = MagicMock()
-        
+
         # First call raises gaierror, second call (fallback) succeeds
         mock_smtp = MagicMock()
         mock_smtp_ssl.side_effect = [socket.gaierror("Name resolution failed"), mock_smtp]
-        
+
         # Set required globals
         updateDuckDns.eml_from = 'test@example.com'
         updateDuckDns.eml_to = 'recipient@example.com'
@@ -256,7 +256,7 @@ class TestSendMail:
         updateDuckDns.smtp_port = 587
         updateDuckDns.smtp_user = 'user'
         updateDuckDns.smtp_pass = 'pass'
-        
+
         with patch('socket.gethostname', return_value='testhost'):
             updateDuckDns.send_mail(
                 title='Test',
@@ -264,7 +264,7 @@ class TestSendMail:
                 hostname='testhost',
                 run_by_cron=True
             )
-        
+
         # Should have tried both servers
         assert mock_smtp_ssl.call_count == 2
         # Second call should be to IP
@@ -281,7 +281,7 @@ class TestSendMail:
         mock_smtp = MagicMock()
         mock_smtp.send_message.side_effect = smtplib.SMTPException("SMTP error")
         mock_smtp_ssl.return_value = mock_smtp
-        
+
         # Set required globals
         updateDuckDns.eml_from = 'test@example.com'
         updateDuckDns.eml_to = 'recipient@example.com'
@@ -289,7 +289,7 @@ class TestSendMail:
         updateDuckDns.smtp_port = 587
         updateDuckDns.smtp_user = 'user'
         updateDuckDns.smtp_pass = 'pass'
-        
+
         with patch('socket.gethostname', return_value='testhost'):
             updateDuckDns.send_mail(
                 title='Test',
@@ -297,7 +297,7 @@ class TestSendMail:
                 hostname='testhost',
                 run_by_cron=True
             )
-        
+
         mock_print.assert_called_once()
         # Verify exception object was printed
         call_args = mock_print.call_args[0][0]
@@ -323,11 +323,11 @@ class TestRemoveHostFromTimeout:
         old_time = datetime.now().timestamp() - 86400 - 1  # 1 day + 1 second old
         with open(timeout_file, 'w') as f:
             f.write('testhost\t20230101_120000\tsome error\n')
-        
+
         # Mock the file creation time to be old
         with patch('os.path.getctime', return_value=old_time):
             updateDuckDns.remove_host_from_timeout(timeout_file, 'testhost')
-        
+
         # File should be deleted
         assert not os.path.exists(timeout_file)
 
@@ -338,9 +338,9 @@ class TestRemoveHostFromTimeout:
             f.write('host1\t20230101_120000\terror1\n')
             f.write('host2\t20230101_120000\terror2\n')
             f.write('host3\t20230101_120000\terror3\n')
-        
+
         updateDuckDns.remove_host_from_timeout(timeout_file, 'host2')
-        
+
         # Verify host2 is removed
         with open(timeout_file, 'r') as f:
             content = f.read()
@@ -353,9 +353,9 @@ class TestRemoveHostFromTimeout:
         # Create timeout file with one host
         with open(timeout_file, 'w') as f:
             f.write('host1\t20230101_120000\terror1\n')
-        
+
         updateDuckDns.remove_host_from_timeout(timeout_file, 'host1')
-        
+
         # File should be deleted
         assert not os.path.exists(timeout_file)
 
@@ -364,9 +364,9 @@ class TestRemoveHostFromTimeout:
         # Create timeout file with one host
         with open(timeout_file, 'w') as f:
             f.write('host1\t20230101_120000\terror1\n')
-        
+
         updateDuckDns.remove_host_from_timeout(timeout_file, 'host2')
-        
+
         # File should still exist with original content
         with open(timeout_file, 'r') as f:
             content = f.read()
@@ -383,7 +383,7 @@ class TestAddHostToTimeout:
     def test_add_host_to_timeout_new_file(self, timeout_file):
         """Test adding a host to a new timeout file."""
         result = updateDuckDns.add_host_to_timeout(timeout_file, 'testhost', Exception('Test error'))
-        
+
         assert result is True
         assert os.path.exists(timeout_file)
         with open(timeout_file, 'r') as f:
@@ -396,11 +396,11 @@ class TestAddHostToTimeout:
         old_time = datetime.now().timestamp() - 86400 - 1
         with open(timeout_file, 'w') as f:
             f.write('oldhost\t20230101_120000\told error\n')
-        
+
         # Mock the file creation time to be old
         with patch('os.path.getctime', return_value=old_time):
             result = updateDuckDns.add_host_to_timeout(timeout_file, 'newhost', Exception('New error'))
-        
+
         assert result is True
         # Old file should be deleted and new one created
         with open(timeout_file, 'r') as f:
@@ -413,9 +413,9 @@ class TestAddHostToTimeout:
         # Create timeout file with host
         with open(timeout_file, 'w') as f:
             f.write('testhost\t20230101_120000\tsome error\n')
-        
+
         result = updateDuckDns.add_host_to_timeout(timeout_file, 'testhost', Exception('Another error'))
-        
+
         assert result is False
         # Content should remain unchanged
         with open(timeout_file, 'r') as f:
@@ -426,10 +426,10 @@ class TestAddHostToTimeout:
         """Test adding multiple hosts to timeout file."""
         result1 = updateDuckDns.add_host_to_timeout(timeout_file, 'host1', Exception('Error 1'))
         result2 = updateDuckDns.add_host_to_timeout(timeout_file, 'host2', Exception('Error 2'))
-        
+
         assert result1 is True
         assert result2 is True
-        
+
         with open(timeout_file, 'r') as f:
             content = f.read()
         assert 'host1' in content
@@ -447,7 +447,7 @@ class TestSetupArgParser:
         """Test argument parser with default values."""
         # Set global servers variable
         updateDuckDns.servers = '8.8.8.8,8.8.4.4'
-        
+
         with patch('argparse.ArgumentParser') as mock_parser_class:
             mock_parser = MagicMock()
             mock_args = MagicMock()
@@ -462,10 +462,10 @@ class TestSetupArgParser:
             mock_args.verbose = False
             mock_parser.parse_args.return_value = mock_args
             mock_parser_class.return_value = mock_parser
-            
+
             with patch('sys.argv', ['updateDuckDns.py']):
                 args = updateDuckDns.setup_arg_parser()
-        
+
         assert args.clear is False
         assert args.dryrun is False
         assert args.force is False
@@ -480,7 +480,7 @@ class TestSetupArgParser:
         """Test argument parser with various flags."""
         # Set global servers variable
         updateDuckDns.servers = '8.8.8.8,8.8.4.4'
-        
+
         with patch('argparse.ArgumentParser') as mock_parser_class:
             mock_parser = MagicMock()
             mock_args = MagicMock()
@@ -495,10 +495,10 @@ class TestSetupArgParser:
             mock_args.auth = None
             mock_parser.parse_args.return_value = mock_args
             mock_parser_class.return_value = mock_parser
-            
+
             with patch('sys.argv', ['updateDuckDns.py', '-c', '-n', '-f', '-s', '-v']):
                 args = updateDuckDns.setup_arg_parser()
-        
+
         assert args.clear is True
         assert args.dryrun is True
         assert args.force is True
@@ -509,7 +509,7 @@ class TestSetupArgParser:
         """Test argument parser with option values."""
         # Set global servers variable
         updateDuckDns.servers = '8.8.8.8,8.8.4.4'
-        
+
         with patch('argparse.ArgumentParser') as mock_parser_class:
             mock_parser = MagicMock()
             mock_args = MagicMock()
@@ -524,10 +524,10 @@ class TestSetupArgParser:
             mock_args.auth = 'token123'
             mock_parser.parse_args.return_value = mock_args
             mock_parser_class.return_value = mock_parser
-            
+
             with patch('sys.argv', ['updateDuckDns.py', '-t', 'test_txt', '-d', 'dom1,dom2', '-a', 'token123']):
                 args = updateDuckDns.setup_arg_parser()
-        
+
         assert args.txt == 'test_txt'
         assert args.domains == 'dom1,dom2'
         assert args.auth == 'token123'
@@ -536,7 +536,7 @@ class TestSetupArgParser:
         """Test argument parser in resolve mode."""
         # Set global servers variable
         updateDuckDns.servers = '8.8.8.8,8.8.4.4'
-        
+
         with patch('argparse.ArgumentParser') as mock_parser_class:
             mock_parser = MagicMock()
             mock_args = MagicMock()
@@ -551,10 +551,10 @@ class TestSetupArgParser:
             mock_args.auth = None
             mock_parser.parse_args.return_value = mock_args
             mock_parser_class.return_value = mock_parser
-            
+
             with patch('sys.argv', ['updateDuckDns.py', '-r']):
                 args = updateDuckDns.setup_arg_parser()
-        
+
         assert args.resolve is True
 
 
@@ -573,19 +573,19 @@ class TestCheckServers:
         # Setup mock resolver
         mock_resolver = MagicMock()
         mock_resolver_class.return_value = mock_resolver
-        
+
         mock_answer = MagicMock()
         mock_answer.rrset = '1.2.3.4'
         mock_resolver.resolve.return_value = mock_answer
-        
+
         # Mock rr iteration
         mock_rr = MagicMock()
         mock_rr.to_text.return_value = '1.2.3.4'
         mock_answer.__iter__ = lambda self: iter([mock_rr])
-        
+
         # Set global
         updateDuckDns.timeout_fname = '/tmp/timeout'
-        
+
         result = updateDuckDns.check_servers(
             servers='8.8.8.8,8.8.4.4',
             name='www.free.fr',
@@ -594,7 +594,7 @@ class TestCheckServers:
             hostname='testhost',
             run_by_cron=True
         )
-        
+
         mock_resolver.resolve.assert_called()
         mock_remove.assert_called()
 
@@ -605,16 +605,16 @@ class TestCheckServers:
     def test_check_servers_timeout(self, mock_open_file, mock_send_mail, mock_add, mock_resolver_class):
         """Test check_servers with DNS timeout."""
         import dns.exception
-        
+
         # Setup mock resolver
         mock_resolver = MagicMock()
         mock_resolver_class.return_value = mock_resolver
         mock_resolver.resolve.side_effect = dns.exception.Timeout()
-        
+
         # Set globals
         updateDuckDns.timeout_fname = '/tmp/timeout'
         updateDuckDns.RUN_BY_CRON = False
-        
+
         result = updateDuckDns.check_servers(
             servers='8.8.8.8',
             name='www.free.fr',
@@ -623,7 +623,7 @@ class TestCheckServers:
             hostname='testhost',
             run_by_cron=False
         )
-        
+
         mock_add.assert_called_once()
 
     @patch('dns.resolver.Resolver')
@@ -631,7 +631,7 @@ class TestCheckServers:
         """Test check_servers with empty server in list."""
         mock_resolver = MagicMock()
         mock_resolver_class.return_value = mock_resolver
-        
+
         with patch('logging.Logger.warning') as mock_warning:
             result = updateDuckDns.check_servers(
                 servers='8.8.8.8,,8.8.4.4',
@@ -641,7 +641,7 @@ class TestCheckServers:
                 hostname='testhost',
                 run_by_cron=False
             )
-        
+
         mock_warning.assert_called()
 
 
@@ -659,17 +659,17 @@ class TestGetArcher:
         mock_archer = MagicMock()
         mock_archer.get_timestamp.return_value = ''
         mock_archer_class.return_value = mock_archer
-        
+
         # Set globals
         updateDuckDns.ARCHER_LOGIN = 'test_login'
         updateDuckDns.ARCHER_ENCRYPTED = 'test_encrypted'
         updateDuckDns.ARCHER_URL = 'http://test.url'
         updateDuckDns.RUN_BY_CRON = False
         updateDuckDns.hostname = 'testhost'
-        
+
         with pytest.raises(SystemExit) as exc_info:
             updateDuckDns.getArcher()
-        
+
         assert exc_info.value.code == 1
         mock_send_mail.assert_called_once()
 
@@ -681,14 +681,14 @@ class TestGetArcher:
         mock_archer.get_timestamp.return_value = 'timestamp'
         mock_archer.get_internet_status.return_value = 'disconnected'
         mock_archer_class.return_value = mock_archer
-        
+
         # Set globals
         updateDuckDns.ARCHER_LOGIN = 'test_login'
         updateDuckDns.ARCHER_ENCRYPTED = 'test_encrypted'
         updateDuckDns.ARCHER_URL = 'http://test.url'
-        
+
         result = updateDuckDns.getArcher()
-        
+
         assert result is False
         mock_exit.assert_not_called()
 
@@ -701,13 +701,13 @@ class TestGetArcher:
         mock_archer.get_wan_ip.return_value = '1.2.3.4'
         mock_archer.logout.return_value = None
         mock_archer_class.return_value = mock_archer
-        
+
         # Set globals
         updateDuckDns.ARCHER_LOGIN = 'test_login'
         updateDuckDns.ARCHER_ENCRYPTED = 'test_encrypted'
         updateDuckDns.ARCHER_URL = 'http://test.url'
-        
+
         result = updateDuckDns.getArcher()
-        
+
         assert result == '1.2.3.4'
         mock_archer.logout.assert_called_once()

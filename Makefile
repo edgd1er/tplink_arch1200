@@ -1,4 +1,5 @@
 .PHONY: lint flake build help all test test-quick test-check-plugs test-updateDuckDns test-archer1200 test-duckdns test-noip
+SHELL := /bin/bash
 
 MAKEPATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 PWD := $(dir $(MAKEPATH))
@@ -20,7 +21,7 @@ help: ## generate help list
 all: lint flake build
 
 lint: ## lint python files
-		pylint .
+		pylint --ignore=.venv,archer_check.py,updateDuckDns-sample.py,build,tp .
 
 flake: ## lint python files
 		flake8 .
@@ -39,8 +40,7 @@ deps-check: ## check dependencies with pipdeptree, safety, and pip-review
 
 test: ## run all unit tests with coverage
 		@echo "Running all unit tests with coverage..."
-		# Install coverage if not available (for CI)
-		[[ -z ${CI_JOB_ID:-} ]] && sudo apt install -y --no-install-recommends python3-coverage || true
+		# $(PYTHON) -m pip install .[dev]
 		# Run all tests with coverage
 		$(PYTHON) -m coverage run -m pytest tests/ -v
 		# Generate coverage reports

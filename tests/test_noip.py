@@ -1,9 +1,7 @@
 """Unit tests for noip.NoIp module using pytest."""
 import pytest
-from unittest.mock import patch, call, mock_open
-import socket
 import requests
-from requests import Response
+from unittest.mock import patch, call, mock_open
 
 from noip.noip import NoIp
 

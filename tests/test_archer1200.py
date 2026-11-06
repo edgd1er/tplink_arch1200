@@ -24,12 +24,12 @@ def router_instance():
     """Fixture providing a Archer1200 instance with mocked HTTP calls."""
     # Create mock session
     mock_session = MagicMock()
-    
+
     # Mock response for timestamp
     timestamp_response = MagicMock()
     timestamp_response.text = '<html><head><title>Index of /webpages/js/libs/</title></head><body><h1>Index of /webpages/js/libs/</h1><strong><a href="/webpages/js/libs/encrypt.987654321.js">encrypt.987654321.js</body></html>'
     timestamp_response.raise_for_status = MagicMock()
-    
+
     # Mock response for cloud login check
     check_factory_response = MagicMock()
     check_factory_response.json.return_value = {
@@ -38,7 +38,7 @@ def router_instance():
     }
     check_factory_response.text = '{"success": "true", "data": {"is_default": "false", "cloud_ever_login": "true"}}'
     check_factory_response.raise_for_status = MagicMock()
-    
+
     # Mock response for cloud login
     cloud_login_response = MagicMock()
     cloud_login_response.json.return_value = {
@@ -47,22 +47,22 @@ def router_instance():
     }
     cloud_login_response.text = '{"success": "true", "data": {"password": "V_SECRET", "stok": "mocked_token"}}'
     cloud_login_response.raise_for_status = MagicMock()
-    
+
     # Set up side_effect for initialization calls
     # First POST: check_factory_default
     # Second POST: cloud_login
     mock_session.post.side_effect = [check_factory_response, cloud_login_response]
     mock_session.get.return_value = timestamp_response
-    
+
     # Patch requests.session to return our mock
     with patch('requests.session', return_value=mock_session):
         # Create instance - this will use our mocked session
         router = Archer1200(username="ARCHER_LOGIN", encrypted="ARCHER_ENCRYPTED")
-        
+
         # Verify the calls were made
         mock_session.get.assert_called_once_with('http://tplinkwifi.net/webpages/js/libs/')
         assert mock_session.post.call_count == 2
-        
+
         # Reset mocks for individual tests
         mock_session.get.reset_mock()
         mock_session.post.reset_mock()
@@ -74,7 +74,7 @@ def router_instance():
         default_response.raise_for_status = MagicMock()
         mock_session.get.return_value = default_response
         mock_session.post.return_value = default_response
-        
+
         yield router, mock_session.get, mock_session.post
 
 

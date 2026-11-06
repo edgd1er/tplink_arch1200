@@ -3,7 +3,6 @@ import argparse
 import asyncio
 import configparser
 import http
-import json
 import logging.config
 import os
 import smtplib
@@ -285,7 +284,7 @@ def main():
     parser.add_argument('-c', '--config', type=str, default=None, help='path to the config ini file.')
 
     args = parser.parse_args()
-    
+
     if not os.path.isfile(LDIR + os.path.sep + 'check_plugs_logging.ini'):
         print(
             f'check_plugs_logging.ini not found, please define one from sample: {LDIR + os.path.sep + "check_plugs_logging.ini"}')
