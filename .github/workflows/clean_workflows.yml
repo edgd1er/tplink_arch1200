@@ -1,8 +1,12 @@
 name: Clean workflows
 on:
   schedule:
-    - cron: "0 8 * * *"
+    - cron: "0 8 * * 1"
   workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
 
 jobs:
   clean_old_workflow:
@@ -20,7 +24,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           save_period: 30
-          #branch: ${{ matrix.branch }}
+          branch: ${{ matrix.branch }}
           dry: ${{ env.DRY }}
 
       - name: Delete failed workflow runs
@@ -36,7 +40,7 @@ jobs:
             stale
             timed_out
           save_period: 5
-          #branch: ${{ matrix.branch }}
+          branch: ${{ matrix.branch }}
           save_min_runs_number: 0
           dry: ${{ env.DRY }}
 
