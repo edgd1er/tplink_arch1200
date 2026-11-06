@@ -12,7 +12,7 @@ if sys.version_info >= (3, 8):
     import asyncio
 
 # Now import the module under test (dependencies should be installed)
-from src.check_plugs.check_plugs import (
+from check_plugs.check_plugs import (
     HostsConfig,
     config_to_list,
     getConfigFromTarget,
@@ -27,7 +27,7 @@ from src.check_plugs.check_plugs import (
 @pytest.fixture
 def sample_hosts_config():
     """Fixture providing sample hosts_config list."""
-    import src.check_plugs.check_plugs as check_plugs_module
+    import check_plugs.check_plugs as check_plugs_module
     original = check_plugs_module.hosts_config.copy() if hasattr(check_plugs_module, 'hosts_config') else []
     check_plugs_module.hosts_config = [
         HostsConfig('plug1', '192.168.1.1', 'Meross Plug 1', 'https://plug1.local'),
@@ -41,7 +41,7 @@ def sample_hosts_config():
 @pytest.fixture(autouse=True)
 def reset_global_vars():
     """Reset global variables before and after each test."""
-    import src.check_plugs.check_plugs as check_plugs_module
+    import check_plugs.check_plugs as check_plugs_module
     
     # Save original values (handle case where they don't exist yet)
     orig_hosts_config = check_plugs_module.hosts_config
@@ -96,7 +96,7 @@ class TestConfigToList:
 
     def test_config_to_list_populates_hosts_config(self):
         """Test that config_to_list populates hosts_config list."""
-        import src.check_plugs.check_plugs as check_plugs_module
+        import check_plugs.check_plugs as check_plugs_module
         # Create a mock config object
         mock_config = {
             'hosts': {
@@ -298,7 +298,7 @@ class TestSendMail:
 
     def test_send_mail_not_run_by_cron(self):
         """Test send_mail when not run by cron (prints message)."""
-        import src.check_plugs.check_plugs as check_plugs_module
+        import check_plugs.check_plugs as check_plugs_module
         with patch('builtins.print') as mock_print:
             check_plugs_module.to_process = ['plug1', 'plug2']
             check_plugs_module.hosts_config = [
@@ -315,7 +315,7 @@ class TestSendMail:
 
     def test_send_mail_run_by_cron(self):
         """Test send_mail when run by cron (sends email)."""
-        import src.check_plugs.check_plugs as check_plugs_module
+        import check_plugs.check_plugs as check_plugs_module
         with patch('smtplib.SMTP') as mock_smtp_class, \
              patch('ssl.create_default_context') as mock_ssl:
             
@@ -348,7 +348,7 @@ class TestSendMail:
     def test_send_mail_smtp_exception(self):
         """Test send_mail handles SMTPException gracefully."""
         import smtplib
-        import src.check_plugs.check_plugs as check_plugs_module
+        import check_plugs.check_plugs as check_plugs_module
         with patch('smtplib.SMTP') as mock_smtp_class, \
              patch('ssl.create_default_context') as mock_ssl, \
              patch('builtins.print') as mock_print:
@@ -392,10 +392,10 @@ class TestPrepareFunctions:
 
     @patch('asyncio.new_event_loop')
     @patch('asyncio.set_event_loop')
-    @patch('src.check_plugs.check_plugs.switch_off_on', new_callable=AsyncMock)
+    @patch('check_plugs.check_plugs.switch_off_on', new_callable=AsyncMock)
     def test_prepare_off_on_empty_list(self, mock_switch, mock_set_loop, mock_new_loop):
         """Test prepare_off_on with empty list returns early."""
-        from src.check_plugs.check_plugs import prepare_off_on
+        from check_plugs.check_plugs import prepare_off_on
         prepare_off_on([], dryrun=False)
         
         # Should return immediately without calling switch_off_on
@@ -405,10 +405,10 @@ class TestPrepareFunctions:
 
     @patch('asyncio.new_event_loop')
     @patch('asyncio.set_event_loop')
-    @patch('src.check_plugs.check_plugs.switch_off_on', new_callable=AsyncMock)
+    @patch('check_plugs.check_plugs.switch_off_on', new_callable=AsyncMock)
     def test_prepare_off_on_with_devices(self, mock_switch, mock_set_loop, mock_new_loop):
         """Test prepare_off_on with devices to process."""
-        from src.check_plugs.check_plugs import prepare_off_on
+        from check_plugs.check_plugs import prepare_off_on
         mock_loop = MagicMock()
         mock_new_loop.return_value = mock_loop
         
@@ -426,10 +426,10 @@ class TestPrepareFunctions:
 
     @patch('asyncio.new_event_loop')
     @patch('asyncio.set_event_loop')
-    @patch('src.check_plugs.check_plugs.get_meross_devices_status', new_callable=AsyncMock)
+    @patch('check_plugs.check_plugs.get_meross_devices_status', new_callable=AsyncMock)
     def test_prepare_get_status(self, mock_get_status, mock_set_loop, mock_new_loop):
         """Test prepare_get_status function."""
-        from src.check_plugs.check_plugs import prepare_get_status
+        from check_plugs.check_plugs import prepare_get_status
         mock_loop = MagicMock()
         mock_new_loop.return_value = mock_loop
         

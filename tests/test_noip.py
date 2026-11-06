@@ -5,7 +5,7 @@ import socket
 import requests
 from requests import Response
 
-from src.noip.noip import NoIp
+from noip.noip import NoIp
 
 
 @pytest.fixture

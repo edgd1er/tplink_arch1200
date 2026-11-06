@@ -23,9 +23,9 @@ from email.message import EmailMessage
 import dns.resolver
 
 # Homemade Modules
-from src.archer1200 import archer1200
-from src.duckdns import duckdns
-from src.noip import NoIp
+from archer1200.archer1200 import Archer1200
+import duckdns
+import noip.noip
 
 # Variables
 LDIR = os.path.dirname(os.path.realpath(__file__))
@@ -202,7 +202,7 @@ def check_duckdns(token: str = '', domains: str = '', force: bool = False, ip: s
 
 
 def check_noip(login: str = '', passwd: str = '', hosts: str = '', ip: str = '', force: bool = False) -> bool:
-    my_noip = NoIp(login=login, passwd=passwd, hosts=hosts, ip=ip, force=force)
+    my_noip = noip.noip.NoIp(login=login, passwd=passwd, hosts=hosts, ip=ip, force=force)
     out = my_noip.check_and_update()
     logger.debug(f'out: {out}')
     logger.info(out.strip().replace('\n', ' '))
@@ -264,9 +264,9 @@ def check_servers(servers: str = '', name: str = 'www.free.fr', force: bool = Fa
 
 def getArcher():
     # Router status check
-    my_router = archer1200.Archer1200(username=ARCHER_LOGIN, encrypted=ARCHER_ENCRYPTED, url=ARCHER_URL)
+    my_router = Archer1200(username=ARCHER_LOGIN, encrypted=ARCHER_ENCRYPTED, url=ARCHER_URL)
     if my_router.get_timestamp() == '':
-        logger.error('Error archer1200.Archer1200: cannot connect to router.')
+        logger.error('Error Archer1200: cannot connect to router.')
         send_mail(title='DucksDNS: init', message='Error archer1200.Archer1200: cannot connect to router.',
                   run_by_cron=RUN_BY_CRON, hostname=hostname)
         sys.exit(1)

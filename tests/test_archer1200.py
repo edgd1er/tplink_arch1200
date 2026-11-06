@@ -8,7 +8,7 @@ import pytest
 import requests
 from requests import Response
 
-from src.archer1200.archer1200 import Archer1200
+from archer1200.archer1200 import Archer1200
 
 
 def _create_response(status_code: int, content: bytes) -> Response:

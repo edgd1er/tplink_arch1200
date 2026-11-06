@@ -5,7 +5,7 @@ import socket
 
 from requests import Response
 
-from src.duckdns import DuckDns
+from duckdns import DuckDns
 
 
 @pytest.fixture

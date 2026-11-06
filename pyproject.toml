@@ -71,3 +71,6 @@ disallow_untyped_defs = true
 ignore = "E501"
 exclude = ".git,__pycache__,docs/source/conf.py,old,build,dist,tp"
 max-complexity = "10"
+
+[tool.setuptools.packages.find]
+where = ["src"]

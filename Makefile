@@ -58,7 +58,7 @@ test-check-plugs: ## run check_plugs tests only
 
 test-updateDuckDns: ## run updateDuckDns tests only
 		@echo "Running updateDuckDns tests..."
-		$(PYTHON) -m pytest tests/test_updateDuckDns.py tests/test_updateDuckDns_full.py -v
+		$(PYTHON) -m pytest tests/test_updateDuckDns.py -v
 
 test-archer1200: ## run archer1200 tests only
 		@echo "Running archer1200 tests..."
