@@ -3,6 +3,7 @@
 MAKEPATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 PWD := $(dir $(MAKEPATH))
 
+
 # Use venv python if available
 PYTHON := .venv/bin/python
 ifeq ($(shell which $(PYTHON) 2>/dev/null),)
@@ -23,6 +24,18 @@ lint: ## lint python files
 
 flake: ## lint python files
 		flake8 .
+
+outdated: ## check dep versions
+		pip list --outdated
+
+deps-check: ## check dependencies with pipdeptree, safety, and pip-review
+	@echo "=== Checking dependency tree ==="
+	@pipdeptree
+	@echo -e "\n=== Checking for security vulnerabilities ==="
+	@safety check || true
+	@echo -e "\n=== Checking for outdated packages ==="
+	@pip-review
+	@echo -e "\n=== Done ==="
 
 test: ## run all unit tests with coverage
 		@echo "Running all unit tests with coverage..."
